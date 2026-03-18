@@ -20,7 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
             id: 1,
             email: email,
             name: email.split('@')[0],
-            role: 'manager'
+            role: 'manager'  // Default role - will be replaced by backend
           }
           user.value = userData
           isAuthenticated.value = true
