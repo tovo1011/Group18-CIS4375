@@ -1,69 +1,105 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import axios from 'axios'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export const useSupplierStore = defineStore('suppliers', () => {
-  const suppliers = ref([
-    {
-      id: 1,
-      name: 'Global Florals Inc',
-      contactInfo: 'contact@globalflorals.com',
-      website: 'https://www.globalflorals.com',
-      phone: '+1-800-555-0101',
-      createdAt: '2025-01-15'
-    },
-    {
-      id: 2,
-      name: 'Citrus Trading Co',
-      contactInfo: 'sales@citrustrading.com',
-      website: 'https://www.citrustrading.com',
-      phone: '+1-800-555-0102',
-      createdAt: '2025-01-20'
-    },
-    {
-      id: 3,
-      name: 'Essence Importers Ltd',
-      contactInfo: 'info@essenceimporters.com',
-      website: 'https://www.essenceimporters.com',
-      phone: '+1-800-555-0103',
-      createdAt: '2025-02-01'
-    }
-  ])
+  const suppliers = ref([])
+  const loading = ref(false)
+  const error = ref(null)
 
   const getSupplier = (id) => {
     return suppliers.value.find(s => s.id === id)
   }
 
-  const addSupplier = (supplier) => {
-    const newSupplier = {
-      id: Math.max(...suppliers.value.map(s => s.id), 0) + 1,
-      ...supplier,
-      createdAt: new Date().toISOString().split('T')[0]
+  const fetchSuppliers = async () => {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await axios.get(`${API_URL}/suppliers`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      })
+      suppliers.value = response.data
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Failed to fetch suppliers'
+      console.error('Fetch suppliers error:', err)
+    } finally {
+      loading.value = false
     }
-    suppliers.value.push(newSupplier)
-    return newSupplier
   }
 
-  const updateSupplier = (id, updates) => {
-    const index = suppliers.value.findIndex(s => s.id === id)
-    if (index !== -1) {
-      suppliers.value[index] = { ...suppliers.value[index], ...updates }
-      return suppliers.value[index]
+  const addSupplier = async (supplier) => {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await axios.post(`${API_URL}/suppliers`, supplier, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      })
+      suppliers.value.push(response.data)
+      return response.data
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Failed to add supplier'
+      throw err
+    } finally {
+      loading.value = false
     }
-    return null
   }
 
-  const deleteSupplier = (id) => {
-    const index = suppliers.value.findIndex(s => s.id === id)
-    if (index !== -1) {
-      suppliers.value.splice(index, 1)
+  const updateSupplier = async (id, updates) => {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await axios.put(`${API_URL}/suppliers/${id}`, updates, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      })
+      const index = suppliers.value.findIndex(s => s.id === id)
+      if (index !== -1) {
+        suppliers.value[index] = response.data
+      }
+      return response.data
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Failed to update supplier'
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const deleteSupplier = async (id) => {
+    try {
+      loading.value = true
+      error.value = null
+      await axios.delete(`${API_URL}/suppliers/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      })
+      const index = suppliers.value.findIndex(s => s.id === id)
+      if (index !== -1) {
+        suppliers.value.splice(index, 1)
+      }
       return true
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Failed to delete supplier'
+      throw err
+    } finally {
+      loading.value = false
     }
-    return false
   }
 
   return {
     suppliers,
+    loading,
+    error,
     getSupplier,
+    fetchSuppliers,
     addSupplier,
     updateSupplier,
     deleteSupplier

@@ -1,57 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import axios from 'axios'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export const useAuditStore = defineStore('audit', () => {
-  const auditLogs = ref([
-    {
-      id: 1,
-      userId: 1,
-      userName: 'admin@t4scents.com',
-      action: 'CREATE',
-      tableName: 'scents',
-      recordId: 1,
-      recordName: 'Rose Elegance',
-      details: 'Created new scent formula',
-      timestamp: '2025-01-15 10:30:00'
-    },
-    {
-      id: 2,
-      userId: 2,
-      userName: 'manager@t4scents.com',
-      action: 'UPDATE',
-      tableName: 'ingredients',
-      recordId: 1,
-      recordName: 'Rose Oil',
-      details: 'Updated cost and storage location',
-      timestamp: '2025-01-20 14:15:00'
-    },
-    {
-      id: 3,
-      userId: 1,
-      userName: 'admin@t4scents.com',
-      action: 'CREATE',
-      tableName: 'suppliers',
-      recordId: 1,
-      recordName: 'Global Florals Inc',
-      details: 'Added new supplier partner',
-      timestamp: '2025-01-22 09:45:00'
-    },
-    {
-      id: 4,
-      userId: 2,
-      userName: 'manager@t4scents.com',
-      action: 'DELETE',
-      tableName: 'scents',
-      recordId: 2,
-      recordName: 'Old Formula',
-      details: 'Archived outdated scent',
-      timestamp: '2025-02-05 16:20:00'
-    }
-  ])
-
+  const auditLogs = ref([])
   const filterAction = ref('')
   const filterTable = ref('')
   const filterUser = ref('')
+  const loading = ref(false)
+  const error = ref(null)
 
   const filteredAuditLogs = computed(() => {
     return auditLogs.value.filter(log => {
@@ -62,26 +21,60 @@ export const useAuditStore = defineStore('audit', () => {
     })
   })
 
-  const addAuditLog = (log) => {
-    const newLog = {
-      id: Math.max(...auditLogs.value.map(l => l.id), 0) + 1,
-      ...log,
-      timestamp: new Date().toLocaleString()
+  const fetchAuditLogs = async () => {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await axios.get(`${API_URL}/audit-logs`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      })
+      auditLogs.value = response.data
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Failed to fetch audit logs'
+      console.error('Fetch audit logs error:', err)
+    } finally {
+      loading.value = false
     }
-    auditLogs.value.unshift(newLog) // Add to front
-    return newLog
+  }
+
+  const filterAuditLogs = async () => {
+    try {
+      loading.value = true
+      error.value = null
+      const params = new URLSearchParams()
+      if (filterAction.value) params.append('action', filterAction.value)
+      if (filterTable.value) params.append('table', filterTable.value)
+      if (filterUser.value) params.append('user', filterUser.value)
+      
+      const response = await axios.get(`${API_URL}/audit-logs/filter?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      })
+      auditLogs.value = response.data
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Failed to filter audit logs'
+      console.error('Filter audit logs error:', err)
+    } finally {
+      loading.value = false
+    }
   }
 
   const setFilterAction = (action) => {
     filterAction.value = action
+    filterAuditLogs()
   }
 
   const setFilterTable = (table) => {
     filterTable.value = table
+    filterAuditLogs()
   }
 
   const setFilterUser = (user) => {
     filterUser.value = user
+    filterAuditLogs()
   }
 
   const getUniqueTables = () => {
@@ -102,7 +95,10 @@ export const useAuditStore = defineStore('audit', () => {
     filterAction,
     filterTable,
     filterUser,
-    addAuditLog,
+    loading,
+    error,
+    fetchAuditLogs,
+    filterAuditLogs,
     setFilterAction,
     setFilterTable,
     setFilterUser,
