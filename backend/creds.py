@@ -6,13 +6,13 @@ Update these values based on your database setup
 class Creds:
     # MySQL Configuration
     db_type = "mysql"
-    host = "your-mysql-host.com"
-    user = "your-username"
-    password = "your-password"
+    host = "cis4375spring26db2.c92e4wii2y91.us-east-2.rds.amazonaws.com"
+    user = "admin"
+    password = "ihatesql$%"
     database = "perfume_store"
     
     # Flask Configuration
-    SECRET_KEY = "your-secret-key-change-in-production"
+    SECRET_KEY = "antenna-knife-family"
     JWT_EXPIRATION_HOURS = 24
     DEBUG = True
     HOST = "0.0.0.0"
