@@ -51,6 +51,26 @@
           />
         </div>
 
+        <div class="form-group">
+          <label for="allNotes">All Notes</label>
+          <input
+            id="allNotes"
+            v-model="formData.allNotes"
+            type="text"
+            placeholder="e.g., (light apple, rose, carnation, jasmine, suede, musk, wood)"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="essentialOils">Essential Oils</label>
+          <input
+            id="essentialOils"
+            v-model="formData.essentialOils"
+            type="text"
+            placeholder="e.g., patchouli"
+          />
+        </div>
+
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" @click="close">
             Cancel
@@ -80,6 +100,8 @@ const formData = ref({
   topNotes: '',
   middleNotes: '',
   baseNotes: '',
+  allNotes: '',
+  essentialOils: '',
   createdBy: 'admin@t4scents.com'
 })
 
@@ -94,6 +116,8 @@ watch(() => props.isOpen, (newVal) => {
       topNotes: '',
       middleNotes: '',
       baseNotes: '',
+      allNotes: '',
+      essentialOils: '',
       createdBy: 'admin@t4scents.com'
     }
   }

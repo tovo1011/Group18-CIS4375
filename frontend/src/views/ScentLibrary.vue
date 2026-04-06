@@ -39,6 +39,8 @@
             <th>Top Notes</th>
             <th>Middle Notes</th>
             <th>Base Notes</th>
+            <th>All Notes</th>
+            <th>Essential Oils</th>
             <th>Created By</th>
             <th>Date</th>
             <th>Actions</th>
@@ -50,6 +52,8 @@
             <td class="notes">{{ scent.topNotes }}</td>
             <td class="notes">{{ scent.middleNotes }}</td>
             <td class="notes">{{ scent.baseNotes }}</td>
+            <td class="notes">{{ scent.allNotes }}</td>
+            <td>{{ scent.essentialOils }}</td>
             <td class="created-by">{{ scent.createdBy }}</td>
             <td class="date">{{ scent.createdAt }}</td>
             <td class="actions">

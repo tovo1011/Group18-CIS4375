@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+
 export const useScentStore = defineStore('scents', () => {
   const scents = ref([
     {
@@ -9,6 +10,8 @@ export const useScentStore = defineStore('scents', () => {
       topNotes: 'Bergamot, Lemon',
       middleNotes: 'Rose, Jasmine',
       baseNotes: 'Sandalwood, Musk',
+      allNotes: 'Bergamot, Lemon, Rose, Jasmine, Sandalwood, Musk',
+      essentialOils: '',
       createdBy: 'admin@t4scents.com',
       createdAt: '2025-01-15',
       archivedAt: null
@@ -19,10 +22,13 @@ export const useScentStore = defineStore('scents', () => {
       topNotes: 'Sea Salt, Grapefruit',
       middleNotes: 'Aquatic Notes, Jasmine',
       baseNotes: 'Cedarwood, Amber',
+      allNotes: 'Sea Salt, Grapefruit, Aquatic Notes, Jasmine, Cedarwood, Amber',
+      essentialOils: '',
       createdBy: 'admin@t4scents.com',
       createdAt: '2025-02-03',
       archivedAt: null
-    }
+    },
+    ...additionalScents
   ])
 
   const searchQuery = ref('')
@@ -40,7 +46,8 @@ export const useScentStore = defineStore('scents', () => {
         matchesFilter = 
           scent.topNotes.toLowerCase().includes(noteType.toLowerCase()) ||
           scent.middleNotes.toLowerCase().includes(noteType.toLowerCase()) ||
-          scent.baseNotes.toLowerCase().includes(noteType.toLowerCase())
+          scent.baseNotes.toLowerCase().includes(noteType.toLowerCase()) ||
+          scent.allNotes.toLowerCase().includes(noteType.toLowerCase())
       }
       
       return matchesSearch && matchesFilter
