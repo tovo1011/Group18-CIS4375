@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
+import { hardcodedScents } from './hardcodedScents.js'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export const useScentStore = defineStore('scents', () => {
-  const scents = ref([])
+  const scents = ref(hardcodedScents)
   const searchQuery = ref('')
   const filterNoteType = ref('')
   const loading = ref(false)

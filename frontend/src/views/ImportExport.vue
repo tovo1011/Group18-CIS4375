@@ -138,10 +138,14 @@ import { ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useScentStore } from '../stores/scents'
 import { useAuditStore } from '../stores/audit'
+import { parseScentsFile, validateScents } from '../utils/fileParser'
+import axios from 'axios'
 
 const authStore = useAuthStore()
 const scentStore = useScentStore()
 const auditStore = useAuditStore()
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 const fileInput = ref(null)
 const selectedFile = ref(null)
@@ -186,29 +190,47 @@ const handleImport = async () => {
   uploadStatus.value = null
 
   try {
-    // Simulate file parsing and import
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // Parse file
+    console.log(`Parsing file: ${selectedFile.value.name}`)
+    const parsedScents = await parseScentsFile(selectedFile.value)
 
-    const mockData = [
+    // Validate parsed data
+    const validation = validateScents(parsedScents)
+    if (!validation.valid) {
+      const errorMsg = validation.errors.join('\n')
+      throw new Error(`Validation failed:\n${errorMsg}`)
+    }
+
+    console.log(`Successfully parsed ${parsedScents.length} scents`)
+
+    // Send to backend API
+    const response = await axios.post(
+      `${API_URL}/scents/import`,
       {
-        name: 'Imported Scent 1',
-        topNotes: 'Citrus',
-        middleNotes: 'Floral',
-        baseNotes: 'Woody',
-        createdBy: authStore.user.email
+        scents: parsedScents,
+        filename: selectedFile.value.name,
+        filesize: selectedFile.value.size
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
       }
-    ]
+    )
 
-    // Add scents
-    mockData.forEach(scent => {
-      scentStore.addScent(scent)
-    })
+    // Handle API response
+    const result = response.data
+    const importedCount = result.imported || parsedScents.length
+    const errors = result.errors || []
+
+    // Refresh scents from store/API
+    await scentStore.fetchScents()
 
     // Add to import history
     importHistory.value.unshift({
       filename: selectedFile.value.name,
-      rows: mockData.length,
-      status: 'Success',
+      rows: importedCount,
+      status: errors.length > 0 ? 'Partial' : 'Success',
       date: new Date().toISOString().split('T')[0]
     })
 
@@ -217,23 +239,52 @@ const handleImport = async () => {
       userId: authStore.user.id,
       userName: authStore.user.email,
       action: 'CREATE',
-      tableName: 'import_history',
-      recordId: Date.now(),
+      tableName: 'scents',
+      recordId: 0,
       recordName: selectedFile.value.name,
-      details: `Imported ${mockData.length} scents from ${selectedFile.value.name}`
+      details: `Imported ${importedCount} scents from ${selectedFile.value.name}. Errors: ${errors.length}`
     })
 
-    uploadStatus.value = {
-      type: 'success',
-      message: `✅ Successfully imported ${mockData.length} scents from ${selectedFile.value.name}`
+    // Show success message
+    let message = `✅ Successfully imported ${importedCount} scents`
+    if (errors.length > 0) {
+      message += `\n⚠️ ${errors.length} rows had issues`
     }
 
+    uploadStatus.value = {
+      type: errors.length > 0 ? 'warning' : 'success',
+      message
+    }
+
+    // Clear file input
     selectedFile.value = null
     if (fileInput.value) fileInput.value.value = ''
   } catch (error) {
+    console.error('Import error:', error)
+
+    let errorMsg = error.message
+    
+    // Handle axios errors
+    if (error.response?.data?.error) {
+      errorMsg = error.response.data.error
+    } else if (error.response?.data?.details) {
+      errorMsg = error.response.data.details
+    }
+
+    // Log audit failure
+    auditStore.addAuditLog({
+      userId: authStore.user.id,
+      userName: authStore.user.email,
+      action: 'CREATE',
+      tableName: 'scents',
+      recordId: 0,
+      recordName: selectedFile.value?.name || 'unknown',
+      details: `Import failed: ${errorMsg}`
+    })
+
     uploadStatus.value = {
       type: 'error',
-      message: `❌ Import failed: ${error.message}`
+      message: `❌ Import failed: ${errorMsg}`
     }
   } finally {
     uploading.value = false

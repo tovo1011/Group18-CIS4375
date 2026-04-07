@@ -100,6 +100,8 @@ def init_db_schema(connection):
             top_notes TEXT NOT NULL,
             middle_notes TEXT NOT NULL,
             base_notes TEXT NOT NULL,
+            all_notes TEXT,
+            essential_oils TEXT,
             created_by TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             archived_at TIMESTAMP

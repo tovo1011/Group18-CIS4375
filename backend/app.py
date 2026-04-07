@@ -439,6 +439,8 @@ def get_scents(current_user):
         'topNotes': s['top_notes'],
         'middleNotes': s['middle_notes'],
         'baseNotes': s['base_notes'],
+        'allNotes': s.get('all_notes', ''),
+        'essentialOils': s.get('essential_oils', ''),
         'createdBy': s['created_by'],
         'createdAt': s['created_at'],
         'archivedAt': s['archived_at']
@@ -461,6 +463,8 @@ def get_scent(current_user, scent_id):
         'topNotes': s['top_notes'],
         'middleNotes': s['middle_notes'],
         'baseNotes': s['base_notes'],
+        'allNotes': s.get('all_notes', ''),
+        'essentialOils': s.get('essential_oils', ''),
         'createdBy': s['created_by'],
         'createdAt': s['created_at'],
         'archivedAt': s['archived_at']
@@ -477,14 +481,16 @@ def create_scent(current_user):
         return jsonify({'message': 'Name and all note types are required'}), 400
     
     query = """
-    INSERT INTO scents (name, top_notes, middle_notes, base_notes, created_by)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO scents (name, top_notes, middle_notes, base_notes, all_notes, essential_oils, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     """
     values = (
         data['name'],
         data['topNotes'],
         data['middleNotes'],
         data['baseNotes'],
+        data.get('allNotes', ''),
+        data.get('essentialOils', ''),
         current_user['email']
     )
     execute_query(conn, query, values)
@@ -502,6 +508,8 @@ def create_scent(current_user):
         'topNotes': scent['top_notes'],
         'middleNotes': scent['middle_notes'],
         'baseNotes': scent['base_notes'],
+        'allNotes': scent.get('all_notes', ''),
+        'essentialOils': scent.get('essential_oils', ''),
         'createdBy': scent['created_by'],
         'createdAt': scent['created_at'],
         'archivedAt': scent['archived_at']
@@ -523,7 +531,7 @@ def update_scent(current_user, scent_id):
     
     update_query = """
     UPDATE scents
-    SET name = ?, top_notes = ?, middle_notes = ?, base_notes = ?
+    SET name = ?, top_notes = ?, middle_notes = ?, base_notes = ?, all_notes = ?, essential_oils = ?
     WHERE id = ?
     """
     values = (
@@ -531,6 +539,8 @@ def update_scent(current_user, scent_id):
         data.get('topNotes', scent['top_notes']),
         data.get('middleNotes', scent['middle_notes']),
         data.get('baseNotes', scent['base_notes']),
+        data.get('allNotes', scent.get('all_notes', '')),
+        data.get('essentialOils', scent.get('essential_oils', '')),
         scent_id
     )
     execute_query(conn, update_query, values)
@@ -546,6 +556,8 @@ def update_scent(current_user, scent_id):
         'topNotes': s['top_notes'],
         'middleNotes': s['middle_notes'],
         'baseNotes': s['base_notes'],
+        'allNotes': s.get('all_notes', ''),
+        'essentialOils': s.get('essential_oils', ''),
         'createdBy': s['created_by'],
         'createdAt': s['created_at'],
         'archivedAt': s['archived_at']
@@ -569,6 +581,90 @@ def delete_scent(current_user, scent_id):
     log_audit(current_user['id'], current_user['email'], 'DELETE', 'scents', scent_id, scent['name'], 'Archived scent')
     
     return jsonify({'message': 'Scent archived'}), 200
+
+@app.route('/api/scents/import', methods=['POST'])
+@token_required
+def import_scents(current_user):
+    """Import scents from CSV/Excel file"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'scents' not in data:
+            return jsonify({'error': 'No scents data provided'}), 400
+        
+        scents_list = data.get('scents', [])
+        filename = data.get('filename', 'unknown')
+        
+        if not isinstance(scents_list, list) or len(scents_list) == 0:
+            return jsonify({'error': 'Invalid scents data format'}), 400
+        
+        imported_count = 0
+        errors = []
+        
+        for index, scent_data in enumerate(scents_list):
+            try:
+                # Validate required fields
+                if not scent_data.get('name'):
+                    errors.append(f"Row {index + 1}: Missing scent name")
+                    continue
+                
+                # Check for duplicates
+                dup_query = "SELECT * FROM scents WHERE name = ? AND archived_at IS NULL"
+                duplicates = execute_read_query(conn, dup_query, (scent_data['name'],))
+                if duplicates:
+                    errors.append(f"Row {index + 1}: Scent '{scent_data['name']}' already exists")
+                    continue
+                
+                # Insert scent
+                insert_query = """
+                INSERT INTO scents (name, top_notes, middle_notes, base_notes, all_notes, essential_oils, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """
+                values = (
+                    scent_data.get('name', '').strip(),
+                    scent_data.get('topNotes', '').strip() or scent_data.get('top_notes', '').strip(),
+                    scent_data.get('middleNotes', '').strip() or scent_data.get('middle_notes', '').strip(),
+                    scent_data.get('baseNotes', '').strip() or scent_data.get('base_notes', '').strip(),
+                    scent_data.get('allNotes', '').strip() or scent_data.get('all_notes', '').strip(),
+                    scent_data.get('essentialOils', '').strip() or scent_data.get('essential_oils', '').strip(),
+                    current_user['email']
+                )
+                
+                execute_query(conn, insert_query, values)
+                imported_count += 1
+                
+            except Exception as e:
+                errors.append(f"Row {index + 1}: {str(e)}")
+        
+        # Log audit
+        log_audit(
+            current_user['id'],
+            current_user['email'],
+            'CREATE',
+            'scents',
+            0,
+            filename,
+            f"Imported {imported_count} scents from {filename}. Errors: {len(errors)}"
+        )
+        
+        return jsonify({
+            'imported': imported_count,
+            'total': len(scents_list),
+            'errors': errors if errors else None,
+            'message': f'Successfully imported {imported_count} scents'
+        }), 200
+        
+    except Exception as e:
+        log_audit(
+            current_user['id'],
+            current_user['email'],
+            'CREATE',
+            'scents',
+            0,
+            'import_error',
+            f"Import failed: {str(e)}"
+        )
+        return jsonify({'error': f'Import failed: {str(e)}'}), 500
 
 # ==================== Audit Log Routes ====================
 
