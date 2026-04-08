@@ -47,7 +47,7 @@ def token_required(f):
         try:
             data = jwt.decode(token, Creds.SECRET_KEY, algorithms=['HS256'])
             # Get current user from database
-            query = "SELECT * FROM users WHERE id = ?"
+            query = "SELECT * FROM users WHERE id = %s"
             users = execute_read_query(conn, query, (data['user_id'],))
             if not users:
                 return jsonify({'message': 'User not found'}), 401
@@ -74,7 +74,7 @@ def log_audit(user_id, user_name, action, table_name, record_id, record_name, de
     """Log an audit entry for data modifications"""
     query = """
     INSERT INTO audit_logs (user_id, user_name, action, table_name, record_id, record_name, details)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    VALUES (%s, %s, %s, %s, %s, %s, %s)
     """
     values = (user_id, user_name, action, table_name, record_id, record_name, details)
     execute_query(conn, query, values)
@@ -90,7 +90,7 @@ def login():
         return jsonify({'message': 'Email and password required'}), 400
     
     # Check if user exists
-    query = "SELECT * FROM users WHERE email = ?"
+    query = "SELECT * FROM users WHERE email = %s"
     users = execute_read_query(conn, query, (data['email'],))
     user = users[0] if users else None
     
@@ -100,12 +100,16 @@ def login():
         name = data['email'].split('@')[0]
         insert_query = """
         INSERT INTO users (email, password_hash, name, role)
-        VALUES (?, ?, ?, 'manager')
+        VALUES (%s, %s, %s, 'manager')
         """
-        execute_query(conn, insert_query, (data['email'], password_hash, name))
+        created = execute_query(conn, insert_query, (data['email'], password_hash, name))
+        if not created:
+            return jsonify({'message': 'Unable to create user account'}), 500
         
         # Fetch the newly created user
         users = execute_read_query(conn, query, (data['email'],))
+        if not users:
+            return jsonify({'message': 'User creation failed'}), 500
         user = users[0]
     
     elif not check_password_hash(user['password_hash'], data['password']):
@@ -156,7 +160,7 @@ def get_suppliers(current_user):
 @token_required
 def get_supplier(current_user, supplier_id):
     """Get supplier by ID"""
-    query = "SELECT * FROM suppliers WHERE id = ?"
+    query = "SELECT * FROM suppliers WHERE id = %s"
     suppliers = execute_read_query(conn, query, (supplier_id,))
     
     if not suppliers:
@@ -183,13 +187,13 @@ def create_supplier(current_user):
     
     query = """
     INSERT INTO suppliers (name, contact_info, website, phone)
-    VALUES (?, ?, ?, ?)
+    VALUES (%s, %s, %s, %s)
     """
     values = (data['name'], data.get('contactInfo'), data.get('website'), data.get('phone'))
     execute_query(conn, query, values)
     
     # Get the newly created supplier
-    select_query = "SELECT * FROM suppliers WHERE name = ? ORDER BY id DESC LIMIT 1"
+    select_query = "SELECT * FROM suppliers WHERE name = %s ORDER BY id DESC LIMIT 1"
     suppliers = execute_read_query(conn, select_query, (data['name'],))
     supplier = suppliers[0]
     
@@ -208,7 +212,7 @@ def create_supplier(current_user):
 @token_required
 def update_supplier(current_user, supplier_id):
     """Update supplier"""
-    query = "SELECT * FROM suppliers WHERE id = ?"
+    query = "SELECT * FROM suppliers WHERE id = %s"
     suppliers = execute_read_query(conn, query, (supplier_id,))
     
     if not suppliers:
@@ -220,8 +224,8 @@ def update_supplier(current_user, supplier_id):
     
     update_query = """
     UPDATE suppliers
-    SET name = ?, contact_info = ?, website = ?, phone = ?
-    WHERE id = ?
+    SET name = %s, contact_info = %s, website = %s, phone = %s
+    WHERE id = %s
     """
     values = (
         data.get('name', supplier['name']),
@@ -235,7 +239,7 @@ def update_supplier(current_user, supplier_id):
     log_audit(current_user['id'], current_user['email'], 'UPDATE', 'suppliers', supplier_id, old_name, f'Updated supplier')
     
     # Return updated supplier
-    suppliers = execute_read_query(conn, "SELECT * FROM suppliers WHERE id = ?", (supplier_id,))
+    suppliers = execute_read_query(conn, "SELECT * FROM suppliers WHERE id = %s", (supplier_id,))
     s = suppliers[0]
     return jsonify({
         'id': s['id'],
@@ -250,7 +254,7 @@ def update_supplier(current_user, supplier_id):
 @token_required
 def delete_supplier(current_user, supplier_id):
     """Delete supplier"""
-    query = "SELECT * FROM suppliers WHERE id = ?"
+    query = "SELECT * FROM suppliers WHERE id = %s"
     suppliers = execute_read_query(conn, query, (supplier_id,))
     
     if not suppliers:
@@ -259,7 +263,7 @@ def delete_supplier(current_user, supplier_id):
     supplier = suppliers[0]
     supplier_name = supplier['name']
     
-    delete_query = "DELETE FROM suppliers WHERE id = ?"
+    delete_query = "DELETE FROM suppliers WHERE id = %s"
     execute_query(conn, delete_query, (supplier_id,))
     
     log_audit(current_user['id'], current_user['email'], 'DELETE', 'suppliers', supplier_id, supplier_name, 'Deleted supplier')
@@ -297,7 +301,7 @@ def get_ingredient(current_user, ingredient_id):
     SELECT i.*, s.name as supplier_name 
     FROM ingredients i
     LEFT JOIN suppliers s ON i.supplier_id = s.id
-    WHERE i.id = ?
+    WHERE i.id = %s
     """
     ingredients = execute_read_query(conn, query, (ingredient_id,))
     
@@ -326,14 +330,14 @@ def create_ingredient(current_user):
         return jsonify({'message': 'Name and supplier ID are required'}), 400
     
     # Verify supplier exists
-    supplier_query = "SELECT * FROM suppliers WHERE id = ?"
+    supplier_query = "SELECT * FROM suppliers WHERE id = %s"
     suppliers = execute_read_query(conn, supplier_query, (data['supplierId'],))
     if not suppliers:
         return jsonify({'message': 'Supplier not found'}), 404
     
     query = """
     INSERT INTO ingredients (name, supplier_id, cost, link, storage_location)
-    VALUES (?, ?, ?, ?, ?)
+    VALUES (%s, %s, %s, %s, %s)
     """
     values = (
         data['name'],
@@ -345,7 +349,7 @@ def create_ingredient(current_user):
     execute_query(conn, query, values)
     
     # Get the newly created ingredient
-    select_query = "SELECT * FROM ingredients WHERE name = ? ORDER BY id DESC LIMIT 1"
+    select_query = "SELECT * FROM ingredients WHERE name = %s ORDER BY id DESC LIMIT 1"
     ingredients = execute_read_query(conn, select_query, (data['name'],))
     ingredient = ingredients[0]
     
@@ -365,7 +369,7 @@ def create_ingredient(current_user):
 @token_required
 def update_ingredient(current_user, ingredient_id):
     """Update ingredient"""
-    query = "SELECT * FROM ingredients WHERE id = ?"
+    query = "SELECT * FROM ingredients WHERE id = %s"
     ingredients = execute_read_query(conn, query, (ingredient_id,))
     
     if not ingredients:
@@ -377,8 +381,8 @@ def update_ingredient(current_user, ingredient_id):
     
     update_query = """
     UPDATE ingredients
-    SET name = ?, supplier_id = ?, cost = ?, link = ?, storage_location = ?
-    WHERE id = ?
+    SET name = %s, supplier_id = %s, cost = %s, link = %s, storage_location = %s
+    WHERE id = %s
     """
     values = (
         data.get('name', ingredient['name']),
@@ -393,7 +397,7 @@ def update_ingredient(current_user, ingredient_id):
     log_audit(current_user['id'], current_user['email'], 'UPDATE', 'ingredients', ingredient_id, old_name, 'Updated ingredient')
     
     # Return updated ingredient
-    ingredients = execute_read_query(conn, "SELECT * FROM ingredients WHERE id = ?", (ingredient_id,))
+    ingredients = execute_read_query(conn, "SELECT * FROM ingredients WHERE id = %s", (ingredient_id,))
     ing = ingredients[0]
     return jsonify({
         'id': ing['id'],
@@ -409,7 +413,7 @@ def update_ingredient(current_user, ingredient_id):
 @token_required
 def delete_ingredient(current_user, ingredient_id):
     """Delete ingredient"""
-    query = "SELECT * FROM ingredients WHERE id = ?"
+    query = "SELECT * FROM ingredients WHERE id = %s"
     ingredients = execute_read_query(conn, query, (ingredient_id,))
     
     if not ingredients:
@@ -418,7 +422,7 @@ def delete_ingredient(current_user, ingredient_id):
     ingredient = ingredients[0]
     ingredient_name = ingredient['name']
     
-    delete_query = "DELETE FROM ingredients WHERE id = ?"
+    delete_query = "DELETE FROM ingredients WHERE id = %s"
     execute_query(conn, delete_query, (ingredient_id,))
     
     log_audit(current_user['id'], current_user['email'], 'DELETE', 'ingredients', ingredient_id, ingredient_name, 'Deleted ingredient')
@@ -450,7 +454,7 @@ def get_scents(current_user):
 @token_required
 def get_scent(current_user, scent_id):
     """Get scent by ID"""
-    query = "SELECT * FROM scents WHERE id = ?"
+    query = "SELECT * FROM scents WHERE id = %s"
     scents = execute_read_query(conn, query, (scent_id,))
     
     if not scents:
@@ -482,7 +486,7 @@ def create_scent(current_user):
     
     query = """
     INSERT INTO scents (name, top_notes, middle_notes, base_notes, all_notes, essential_oils, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    VALUES (%s, %s, %s, %s, %s, %s, %s)
     """
     values = (
         data['name'],
@@ -496,7 +500,7 @@ def create_scent(current_user):
     execute_query(conn, query, values)
     
     # Get the newly created scent
-    select_query = "SELECT * FROM scents WHERE name = ? ORDER BY id DESC LIMIT 1"
+    select_query = "SELECT * FROM scents WHERE name = %s ORDER BY id DESC LIMIT 1"
     scents = execute_read_query(conn, select_query, (data['name'],))
     scent = scents[0]
     
@@ -519,7 +523,7 @@ def create_scent(current_user):
 @token_required
 def update_scent(current_user, scent_id):
     """Update scent"""
-    query = "SELECT * FROM scents WHERE id = ?"
+    query = "SELECT * FROM scents WHERE id = %s"
     scents = execute_read_query(conn, query, (scent_id,))
     
     if not scents:
@@ -531,8 +535,8 @@ def update_scent(current_user, scent_id):
     
     update_query = """
     UPDATE scents
-    SET name = ?, top_notes = ?, middle_notes = ?, base_notes = ?, all_notes = ?, essential_oils = ?
-    WHERE id = ?
+    SET name = %s, top_notes = %s, middle_notes = %s, base_notes = %s, all_notes = %s, essential_oils = %s
+    WHERE id = %s
     """
     values = (
         data.get('name', scent['name']),
@@ -548,7 +552,7 @@ def update_scent(current_user, scent_id):
     log_audit(current_user['id'], current_user['email'], 'UPDATE', 'scents', scent_id, old_name, 'Updated scent formula')
     
     # Return updated scent
-    scents = execute_read_query(conn, "SELECT * FROM scents WHERE id = ?", (scent_id,))
+    scents = execute_read_query(conn, "SELECT * FROM scents WHERE id = %s", (scent_id,))
     s = scents[0]
     return jsonify({
         'id': s['id'],
@@ -567,7 +571,7 @@ def update_scent(current_user, scent_id):
 @token_required
 def delete_scent(current_user, scent_id):
     """Archive scent (soft delete)"""
-    query = "SELECT * FROM scents WHERE id = ?"
+    query = "SELECT * FROM scents WHERE id = %s"
     scents = execute_read_query(conn, query, (scent_id,))
     
     if not scents:
@@ -575,7 +579,7 @@ def delete_scent(current_user, scent_id):
     
     scent = scents[0]
     
-    update_query = "UPDATE scents SET archived_at = CURRENT_TIMESTAMP WHERE id = ?"
+    update_query = "UPDATE scents SET archived_at = CURRENT_TIMESTAMP WHERE id = %s"
     execute_query(conn, update_query, (scent_id,))
     
     log_audit(current_user['id'], current_user['email'], 'DELETE', 'scents', scent_id, scent['name'], 'Archived scent')
@@ -609,7 +613,7 @@ def import_scents(current_user):
                     continue
                 
                 # Check for duplicates
-                dup_query = "SELECT * FROM scents WHERE name = ? AND archived_at IS NULL"
+                dup_query = "SELECT * FROM scents WHERE name = %s AND archived_at IS NULL"
                 duplicates = execute_read_query(conn, dup_query, (scent_data['name'],))
                 if duplicates:
                     errors.append(f"Row {index + 1}: Scent '{scent_data['name']}' already exists")
@@ -618,7 +622,7 @@ def import_scents(current_user):
                 # Insert scent
                 insert_query = """
                 INSERT INTO scents (name, top_notes, middle_notes, base_notes, all_notes, essential_oils, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """
                 values = (
                     scent_data.get('name', '').strip(),
@@ -698,13 +702,13 @@ def filter_audit_logs(current_user):
     values = []
     
     if action:
-        query += " AND action = ?"
+        query += " AND action = %s"
         values.append(action)
     if table:
-        query += " AND table_name = ?"
+        query += " AND table_name = %s"
         values.append(table)
     if user:
-        query += " AND user_name LIKE ?"
+        query += " AND user_name LIKE %s"
         values.append(f"%{user}%")
     
     query += " ORDER BY timestamp DESC"
@@ -793,24 +797,24 @@ def import_data(current_user):
     try:
         # Import suppliers
         for sup in data.get('suppliers', []):
-            existing_query = "SELECT * FROM suppliers WHERE name = ?"
+            existing_query = "SELECT * FROM suppliers WHERE name = %s"
             existing = execute_read_query(conn, existing_query, (sup['name'],))
             if not existing:
                 insert_query = """
                 INSERT INTO suppliers (name, contact_info, website, phone)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
                 """
                 values = (sup['name'], sup.get('contactInfo'), sup.get('website'), sup.get('phone'))
                 execute_query(conn, insert_query, values)
         
         # Import ingredients
         for ing in data.get('ingredients', []):
-            existing_query = "SELECT * FROM ingredients WHERE name = ?"
+            existing_query = "SELECT * FROM ingredients WHERE name = %s"
             existing = execute_read_query(conn, existing_query, (ing['name'],))
             if not existing:
                 insert_query = """
                 INSERT INTO ingredients (name, supplier_id, cost, link, storage_location)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s)
                 """
                 values = (
                     ing['name'],
@@ -823,12 +827,12 @@ def import_data(current_user):
         
         # Import scents
         for scent in data.get('scents', []):
-            existing_query = "SELECT * FROM scents WHERE name = ?"
+            existing_query = "SELECT * FROM scents WHERE name = %s"
             existing = execute_read_query(conn, existing_query, (scent['name'],))
             if not existing:
                 insert_query = """
                 INSERT INTO scents (name, top_notes, middle_notes, base_notes, created_by)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s)
                 """
                 values = (
                     scent['name'],
@@ -871,7 +875,7 @@ def init_db():
         # Create sample users
         users_query = """
         INSERT INTO users (email, password_hash, name, role)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
         """
         admin_hash = generate_password_hash('admin123')
         manager_hash = generate_password_hash('manager123')
@@ -882,7 +886,7 @@ def init_db():
         # Create sample suppliers
         suppliers_query = """
         INSERT INTO suppliers (name, contact_info, website, phone)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
         """
         execute_query(conn, suppliers_query, ('Global Florals Inc', 'contact@globalflorals.com', 'https://www.globalflorals.com', '+1-800-555-0101'))
         execute_query(conn, suppliers_query, ('Citrus Trading Co', 'sales@citrustrading.com', 'https://www.citrustrading.com', '+1-800-555-0102'))
@@ -891,7 +895,7 @@ def init_db():
         # Create sample ingredients
         ingredients_query = """
         INSERT INTO ingredients (name, supplier_id, cost, link, storage_location)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s)
         """
         execute_query(conn, ingredients_query, ('Rose Oil', 1, 45.99, 'https://www.globalflorals.com/rose-oil', 'Rack A1'))
         execute_query(conn, ingredients_query, ('Bergamot Oil', 2, 32.50, 'https://www.citrustrading.com/bergamot', 'Rack B2'))
@@ -900,7 +904,7 @@ def init_db():
         # Create sample scents
         scents_query = """
         INSERT INTO scents (name, top_notes, middle_notes, base_notes, created_by)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s)
         """
         execute_query(conn, scents_query, ('Rose Elegance', 'Bergamot, Lemon', 'Rose, Jasmine', 'Sandalwood, Musk', 'admin@t4scents.com'))
         execute_query(conn, scents_query, ('Ocean Breeze', 'Sea Salt, Grapefruit', 'Aquatic Notes, Jasmine', 'Cedarwood, Amber', 'admin@t4scents.com'))
