@@ -58,68 +58,131 @@ def init_db_schema(connection):
     """Initialize database schema with all required tables"""
     schema_queries = [
         # Users table
-        ("users", """
-        CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            password_hash VARCHAR(255) NOT NULL,
-            name VARCHAR(255) NOT NULL,
-            role VARCHAR(50) DEFAULT 'manager',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-        """),
-        # Suppliers table
-        ("suppliers", """
-        CREATE TABLE IF NOT EXISTS suppliers (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            contact_info TEXT,
-            website VARCHAR(255),
-            phone VARCHAR(50),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-        """),
-        # Ingredients table
-        ("ingredients", """
-        CREATE TABLE IF NOT EXISTS ingredients (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            supplier_id INT NOT NULL,
-            cost DECIMAL(10,2) NOT NULL,
-            link VARCHAR(512),
-            storage_location VARCHAR(255),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+        ("Users", """
+        CREATE TABLE IF NOT EXISTS Users (
+            UserID INT AUTO_INCREMENT PRIMARY KEY,
+            Username VARCHAR(50) NOT NULL UNIQUE,
+            Email VARCHAR(100) NOT NULL UNIQUE,
+            PasswordHash VARCHAR(255) NOT NULL,
+            FirstName VARCHAR(50),
+            LastName VARCHAR(50),
+            UserRole VARCHAR(20) NOT NULL,
+            Status VARCHAR(20) NOT NULL,
+            CreatedDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            LastLoginDate DATETIME NULL,
+            UpdatedDate DATETIME NULL DEFAULT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         """),
         # Scents table
-        ("scents", """
-        CREATE TABLE IF NOT EXISTS scents (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            top_notes TEXT NOT NULL,
-            middle_notes TEXT NOT NULL,
-            base_notes TEXT NOT NULL,
-            all_notes TEXT,
-            essential_oils TEXT,
-            created_by VARCHAR(255) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            archived_at TIMESTAMP NULL
+        ("Scents", """
+        CREATE TABLE IF NOT EXISTS Scents (
+            scent_ID INT AUTO_INCREMENT PRIMARY KEY,
+            category VARCHAR(100),
+            Scent_description VARCHAR(250),
+            Scent_status VARCHAR(100)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         """),
-        # Audit logs table
-        ("audit_logs", """
-        CREATE TABLE IF NOT EXISTS audit_logs (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            user_name VARCHAR(255) NOT NULL,
-            action VARCHAR(100) NOT NULL,
-            table_name VARCHAR(100) NOT NULL,
-            record_id INT NOT NULL,
-            record_name VARCHAR(255) NOT NULL,
-            details TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
+        # Scent_Essential_Oil table
+        ("Scent_Essential_Oil", """
+        CREATE TABLE IF NOT EXISTS Scent_Essential_Oil (
+            scent_oil_ID INT AUTO_INCREMENT PRIMARY KEY,
+            scent_ID INT,
+            oil_ID INT,
+            note_type VARCHAR(100)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """),
+        # Essential_oil table
+        ("Essential_oil", """
+        CREATE TABLE IF NOT EXISTS Essential_oil (
+            oil_ID INT AUTO_INCREMENT PRIMARY KEY,
+            supplier_ID INT,
+            oil_name VARCHAR(150),
+            oil_description VARCHAR(150),
+            unit_cost INT,
+            oil_status VARCHAR(150)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """),
+        # Suppliers table
+        ("Suppliers", """
+        CREATE TABLE IF NOT EXISTS Suppliers (
+            supplier_ID INT AUTO_INCREMENT PRIMARY KEY,
+            SupplierName VARCHAR(100) NOT NULL UNIQUE,
+            ContactName VARCHAR(100),
+            Email VARCHAR(100),
+            Phone VARCHAR(20),
+            Address VARCHAR(200),
+            Last_order_date DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """),
+        # Products table
+        ("Products", """
+        CREATE TABLE IF NOT EXISTS Products (
+            product_ID VARCHAR(50) PRIMARY KEY,
+            scent_ID INT NOT NULL,
+            product_name VARCHAR(100) NOT NULL,
+            product_type VARCHAR(100) NOT NULL,
+            price INT NOT NULL,
+            FOREIGN KEY (scent_ID) REFERENCES Scents(scent_ID)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """),
+        # DashBoardMetrics table
+        ("DashBoardMetrics", """
+        CREATE TABLE IF NOT EXISTS DashBoardMetrics (
+            MetricID INT AUTO_INCREMENT PRIMARY KEY,
+            MetricType VARCHAR(50) NOT NULL,
+            MetricValue DECIMAL(10,2) NOT NULL,
+            ReferenceID INT,
+            CalculatedDate DATETIME NOT NULL,
+            UpdatedDate DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """),
+        # AuditLog table
+        ("AuditLog", """
+        CREATE TABLE IF NOT EXISTS AuditLog (
+            AuditID INT AUTO_INCREMENT PRIMARY KEY,
+            UserID INT NOT NULL,
+            AuditAction VARCHAR(50) NOT NULL,
+            TableName VARCHAR(50) NOT NULL,
+            RecordID INT,
+            old_Value TEXT,
+            new_value TEXT,
+            IP_address VARCHAR(50),
+            Timestamp DATETIME NOT NULL,
+            FOREIGN KEY (UserID) REFERENCES Users(UserID)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """),
+        # Customers table
+        ("Customers", """
+        CREATE TABLE IF NOT EXISTS Customers (
+            Customer_ID INT AUTO_INCREMENT PRIMARY KEY,
+            first_name VARCHAR(150),
+            last_name VARCHAR(150),
+            email VARCHAR(150),
+            phone VARCHAR(150),
+            customer_address VARCHAR(150),
+            customer_state VARCHAR(150),
+            zip INT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """),
+        # Order table
+        ("Order", """
+        CREATE TABLE IF NOT EXISTS `Order` (
+            order_ID INT AUTO_INCREMENT PRIMARY KEY,
+            customer_ID INT,
+            order_date DATETIME,
+            total_amount INT,
+            order_status VARCHAR(50),
+            FOREIGN KEY (customer_ID) REFERENCES Customers(Customer_ID)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """),
+        # Order_Item table
+        ("Order_Item", """
+        CREATE TABLE IF NOT EXISTS Order_Item (
+            orderitem_ID INT AUTO_INCREMENT PRIMARY KEY,
+            order_ID INT,
+            product_ID INT,
+            quantity INT,
+            unit_price INT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         """),
     ]
