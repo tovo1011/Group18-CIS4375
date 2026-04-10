@@ -1,8 +1,15 @@
 <template>
   <div class="suppliers-view">
+    <div class="breadcrumb">
+      <router-link to="/dashboard" class="bc-back">← Dashboard</router-link>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Suppliers</span>
+    </div>
     <div class="view-header">
-      <h2>🏢 Suppliers</h2>
-      <p>Manage ingredient suppliers and contact information</p>
+      <div class="view-header-left">
+        <h2>Suppliers</h2>
+        <p>Manage ingredient suppliers and contact information</p>
+      </div>
     </div>
 
     <div class="toolbar">
@@ -16,9 +23,7 @@
         <span class="search-icon">🔍</span>
       </div>
 
-      <button v-if="canEdit" class="btn btn-primary" @click="openCreateModal">
-        + Add Supplier
-      </button>
+      <button v-if="canEdit" class="btn btn-primary" @click="openCreateModal">+ Add Supplier</button>
     </div>
 
     <div class="table-container">
@@ -54,22 +59,8 @@
               <span v-else class="no-link">—</span>
             </td>
             <td class="actions">
-              <button
-                v-if="canEdit"
-                class="action-btn edit"
-                @click="openEditModal(supplier)"
-                title="Edit"
-              >
-                ✏️
-              </button>
-              <button
-                v-if="canDelete"
-                class="action-btn delete"
-                @click="openDeleteConfirm(supplier)"
-                title="Delete"
-              >
-                🗑️
-              </button>
+              <button v-if="canEdit" class="action-btn edit" @click="openEditModal(supplier)">Edit</button>
+              <button v-if="canDelete" class="action-btn delete" @click="openDeleteConfirm(supplier)">Delete</button>
             </td>
           </tr>
         </tbody>
@@ -197,184 +188,9 @@ const handleDeleteSupplier = () => {
 </script>
 
 <style scoped>
-.suppliers-view {
-  padding: 30px;
-}
-
-.view-header {
-  margin-bottom: 30px;
-}
-
-.view-header h2 {
-  margin: 0 0 8px 0;
-  font-size: 24px;
-  color: #333;
-}
-
-.view-header p {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.toolbar {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.search-bar {
-  flex: 1;
-  min-width: 200px;
-  position: relative;
-}
-
-.search-bar input {
-  width: 100%;
-  padding: 10px 36px 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.search-bar input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.search-icon {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.btn {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-primary {
-  background: #667eea;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #5568d3;
-}
-
-.table-container {
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.suppliers-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.suppliers-table thead {
-  background: #f8f9fa;
-  border-bottom: 1px solid #ddd;
-}
-
-.suppliers-table th {
-  padding: 12px 16px;
-  text-align: left;
-  font-weight: 600;
-  color: #333;
-}
-
-.suppliers-table tbody tr {
-  border-bottom: 1px solid #eee;
-  transition: background 0.2s ease;
-}
-
-.suppliers-table tbody tr:hover {
-  background: #f9f9f9;
-}
-
-.suppliers-table td {
-  padding: 12px 16px;
-}
-
-.supplier-name {
-  font-weight: 600;
-  color: #667eea;
-}
-
-.link {
-  color: #667eea;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-.link:hover {
-  color: #5568d3;
-  text-decoration: underline;
-}
-
-.no-link {
-  color: #ccc;
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-}
-
-.action-btn {
-  padding: 6px 8px;
-  border: none;
-  border-radius: 4px;
-  background: #f0f0f0;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.action-btn:hover {
-  background: #e0e0e0;
-}
-
-.action-btn.delete:hover {
-  background: #ffebee;
-}
-
-.empty-state {
-  padding: 60px 20px;
-  text-align: center;
-  color: #999;
-}
-
-@media (max-width: 768px) {
-  .toolbar {
-    flex-direction: column;
-  }
-
-  .search-bar {
-    width: 100%;
-  }
-
-  .suppliers-table {
-    font-size: 12px;
-  }
-
-  .suppliers-table th,
-  .suppliers-table td {
-    padding: 8px 12px;
-  }
-}
+.suppliers-view { font-family: var(--font-sans); }
+.supplier-name { font-weight: 600; color: var(--brown); }
+.link { color: var(--gold-dk); text-decoration: none; font-size: 12px; font-weight: 500; }
+.link:hover { text-decoration: underline; }
+.no-link { color: var(--brown-lt); }
 </style>

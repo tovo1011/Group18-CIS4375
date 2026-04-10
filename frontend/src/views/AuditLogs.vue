@@ -1,8 +1,15 @@
 <template>
   <div class="audit-logs">
+    <div class="breadcrumb">
+      <router-link to="/dashboard" class="bc-back">← Dashboard</router-link>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Audit Logs</span>
+    </div>
     <div class="view-header">
-      <h2>📋 Audit Logs</h2>
-      <p>Track all changes made to scents, ingredients, and suppliers</p>
+      <div class="view-header-left">
+        <h2>Audit Logs</h2>
+        <p>Track all changes made to scents, ingredients, and suppliers</p>
+      </div>
     </div>
 
     <div class="filters-section">
@@ -85,192 +92,35 @@ const userFilter = ref('')
 </script>
 
 <style scoped>
-.audit-logs {
-  padding: 30px;
-}
-
-.view-header {
-  margin-bottom: 30px;
-}
-
-.view-header h2 {
-  margin: 0 0 8px 0;
-  font-size: 24px;
-  color: #333;
-}
-
-.view-header p {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
+.audit-logs { font-family: var(--font-sans); }
 
 .filters-section {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  background: #f9f9f9;
-  padding: 16px;
-  border-radius: 8px;
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px;
 }
-
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+.filter-group { display: flex; flex-direction: column; gap: 5px; }
 .filter-group label {
-  font-weight: 600;
-  color: #333;
-  white-space: nowrap;
+  font-size: 10px; font-weight: 700; color: var(--brown-md);
+  letter-spacing: 0.12em; text-transform: uppercase;
 }
-
-.filter-group input,
-.filter-group select {
+.filter-group select,
+.filter-group input {
   padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  background: white;
-}
-
-.filter-group input:focus,
-.filter-group select:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.table-container {
-  background: white;
+  border: 1.5px solid var(--cream-mid);
   border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-size: 12.5px;
+  color: var(--brown);
+  background: var(--white);
+  font-family: var(--font-sans);
+  outline: none;
+}
+.filter-group select:focus,
+.filter-group input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201,160,72,0.12);
 }
 
-.logs-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.logs-table thead {
-  background: #f8f9fa;
-  border-bottom: 1px solid #ddd;
-}
-
-.logs-table th {
-  padding: 12px 16px;
-  text-align: left;
-  font-weight: 600;
-  color: #333;
-}
-
-.logs-table tbody tr {
-  border-bottom: 1px solid #eee;
-  transition: background 0.2s ease;
-}
-
-.logs-table tbody tr:hover {
-  background: #f9f9f9;
-}
-
-.logs-table td {
-  padding: 12px 16px;
-}
-
-.timestamp {
-  font-family: 'Monaco', 'Courier New', monospace;
-  color: #999;
-  white-space: nowrap;
-}
-
-.user {
-  color: #667eea;
-  font-weight: 600;
-}
-
-.action {
-  text-align: center;
-}
-
-.badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.badge-create {
-  background: #d4edda;
-  color: #155724;
-}
-
-.badge-update {
-  background: #cfe2ff;
-  color: #084298;
-}
-
-.badge-delete {
-  background: #f8d7da;
-  color: #842029;
-}
-
-.table-name {
-  color: #999;
-  text-transform: capitalize;
-}
-
-.record-name {
-  font-weight: 600;
-  color: #333;
-}
-
-.details {
-  color: #666;
-  font-size: 12px;
-}
-
-.empty-state {
-  padding: 60px 20px;
-  text-align: center;
-  color: #999;
-}
-
-@media (max-width: 768px) {
-  .filters-section {
-    flex-direction: column;
-  }
-
-  .filter-group {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .filter-group label {
-    width: 100%;
-  }
-
-  .filter-group input,
-  .filter-group select {
-    width: 100%;
-  }
-
-  .logs-table {
-    font-size: 11px;
-  }
-
-  .logs-table th,
-  .logs-table td {
-    padding: 8px 10px;
-  }
-
-  .timestamp {
-    font-size: 10px;
-  }
-}
+.timestamp { font-size: 11px; color: var(--brown-lt); white-space: nowrap; }
+.user { font-size: 12px; color: var(--brown-md); }
+.record-name { font-weight: 600; color: var(--brown); }
+.details { font-size: 11.5px; color: var(--brown-lt); max-width: 240px; }
 </style>
