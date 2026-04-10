@@ -46,10 +46,10 @@
           </div>
 
           <div class="stat-card">
-            <div class="stat-icon">🧪</div>
+            <div class="stat-icon">�</div>
             <div class="stat-info">
-              <h3>Total Ingredients</h3>
-              <p class="stat-value">{{ totalIngredients }}</p>
+              <h3>Total Oils</h3>
+              <p class="stat-value">{{ totalOils }}</p>
             </div>
           </div>
 
@@ -77,8 +77,8 @@
               <button v-if="canEdit" class="action-btn" @click="navigateTo('/scents')">
                 + New Scent
               </button>
-              <button v-if="canEdit" class="action-btn" @click="navigateTo('/ingredients')">
-                + Add Ingredient
+              <button v-if="canEdit" class="action-btn" @click="navigateTo('/oils')">
+                + Add Oil
               </button>
               <button v-if="canEdit" class="action-btn" @click="navigateTo('/suppliers')">
                 + Add Supplier
@@ -125,8 +125,8 @@
             <div class="step">
               <span class="step-number">2</span>
               <div class="step-content">
-                <h4>Manage Ingredients</h4>
-                <p>Visit <router-link to="/ingredients">Ingredients</router-link> to add and organize all your fragrance components.</p>
+                <h4>Manage Essential Oils</h4>
+                <p>Visit <router-link to="/oils">Essential Oils</router-link> to add and organize all your fragrance components.</p>
               </div>
             </div>
             <div class="step">
@@ -162,14 +162,14 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useScentStore } from '../stores/scents'
-import { useIngredientStore } from '../stores/ingredients'
+import { useEssentialOilStore } from '../stores/essential-oils'
 import { useSupplierStore } from '../stores/suppliers'
 import { useAuditStore } from '../stores/audit'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const scentStore = useScentStore()
-const ingredientStore = useIngredientStore()
+const essentialOilStore = useEssentialOilStore()
 const supplierStore = useSupplierStore()
 const auditStore = useAuditStore()
 
@@ -179,7 +179,7 @@ const menuItems = computed(() => {
   const items = [
     { name: 'dashboard', label: 'Dashboard', icon: '📊', route: '/dashboard' },
     { name: 'scents', label: 'Scent Library', icon: '🌹', route: '/scents' },
-    { name: 'ingredients', label: 'Ingredients', icon: '🧪', route: '/ingredients' },
+    { name: 'oils', label: 'Essential Oils', icon: '🧃', route: '/oils' },
     { name: 'suppliers', label: 'Suppliers', icon: '🏢', route: '/suppliers' },
     { name: 'import-export', label: 'Import/Export', icon: '📤', route: '/import-export' }
   ]
@@ -192,7 +192,7 @@ const menuItems = computed(() => {
 })
 
 const totalScents = computed(() => scentStore.scents.filter(s => !s.archivedAt).length)
-const totalIngredients = computed(() => ingredientStore.ingredients.length)
+const totalOils = computed(() => essentialOilStore.oils.length)
 const totalSuppliers = computed(() => supplierStore.suppliers.length)
 const recentActivities = computed(() => auditStore.auditLogs.length)
 

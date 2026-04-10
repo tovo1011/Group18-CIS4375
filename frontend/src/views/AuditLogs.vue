@@ -21,7 +21,7 @@
         <select id="tableFilter" v-model="tableFilter" @change="auditStore.setFilterTable(tableFilter)">
           <option value="">All Tables</option>
           <option value="scents">Scents</option>
-          <option value="ingredients">Ingredients</option>
+          <option value="oils">Essential Oils</option>
           <option value="suppliers">Suppliers</option>
         </select>
       </div>

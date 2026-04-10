@@ -29,10 +29,25 @@ if conn:
 
 # ==================== Helper Functions ====================
 
+def get_db_connection():
+    """Get a valid database connection, reconnecting if necessary"""
+    global conn
+    try:
+        if conn is None or not conn.is_connected():
+            print("Reconnecting to database...")
+            conn = create_connection()
+    except Exception as e:
+        print(f"Connection check error: {e}")
+        conn = create_connection()
+    return conn
+
 def token_required(f):
     """Decorator to check JWT token on protected routes"""
     @wraps(f)
     def decorated(*args, **kwargs):
+        # Ensure we have a valid database connection
+        db_conn = get_db_connection()
+        
         token = None
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
@@ -47,8 +62,8 @@ def token_required(f):
         try:
             data = jwt.decode(token, Creds.SECRET_KEY, algorithms=['HS256'])
             # Get current user from database
-            query = "SELECT * FROM users WHERE id = %s"
-            users = execute_read_query(conn, query, (data['user_id'],))
+            query = "SELECT * FROM Users WHERE UserID = %s"
+            users = execute_read_query(db_conn, query, (data['user_id'],))
             if not users:
                 return jsonify({'message': 'User not found'}), 401
             current_user = users[0]
@@ -64,8 +79,8 @@ def token_required(f):
 def create_token(user):
     """Create a JWT token for a user"""
     payload = {
-        'user_id': user['id'],
-        'email': user['email'],
+        'user_id': user['UserID'],
+        'email': user['Email'],
         'exp': datetime.utcnow() + timedelta(hours=Creds.JWT_EXPIRATION_HOURS)
     }
     return jwt.encode(payload, Creds.SECRET_KEY, algorithm='HS256')
@@ -73,10 +88,10 @@ def create_token(user):
 def log_audit(user_id, user_name, action, table_name, record_id, record_name, details=''):
     """Log an audit entry for data modifications"""
     query = """
-    INSERT INTO audit_logs (user_id, user_name, action, table_name, record_id, record_name, details)
-    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO AuditLog (UserID, Timestamp, AuditAction, TableName, RecordID)
+    VALUES (%s, CURRENT_TIMESTAMP, %s, %s, %s)
     """
-    values = (user_id, user_name, action, table_name, record_id, record_name, details)
+    values = (user_id, action, table_name, record_id)
     execute_query(conn, query, values)
 
 # ==================== Auth Routes ====================
@@ -90,7 +105,7 @@ def login():
         return jsonify({'message': 'Email and password required'}), 400
     
     # Check if user exists
-    query = "SELECT * FROM users WHERE email = %s"
+    query = "SELECT * FROM Users WHERE Email = %s"
     users = execute_read_query(conn, query, (data['email'],))
     user = users[0] if users else None
     
@@ -99,8 +114,8 @@ def login():
         password_hash = generate_password_hash(data['password'])
         name = data['email'].split('@')[0]
         insert_query = """
-        INSERT INTO users (email, password_hash, name, role)
-        VALUES (%s, %s, %s, 'manager')
+        INSERT INTO Users (Email, PasswordHash, Username, UserRole, Status)
+        VALUES (%s, %s, %s, 'manager', 'active')
         """
         created = execute_query(conn, insert_query, (data['email'], password_hash, name))
         if not created:
@@ -112,7 +127,7 @@ def login():
             return jsonify({'message': 'User creation failed'}), 500
         user = users[0]
     
-    elif not check_password_hash(user['password_hash'], data['password']):
+    elif not check_password_hash(user['PasswordHash'], data['password']):
         return jsonify({'message': 'Invalid credentials'}), 401
     
     # Generate token
@@ -121,10 +136,10 @@ def login():
     return jsonify({
         'token': token,
         'user': {
-            'id': user['id'],
-            'email': user['email'],
-            'name': user['name'],
-            'role': user['role']
+            'id': user['UserID'],
+            'email': user['Email'],
+            'name': user['Username'],
+            'role': user['UserRole']
         }
     }), 200
 
@@ -133,10 +148,10 @@ def login():
 def get_current_user(current_user):
     """Get current authenticated user"""
     return jsonify({
-        'id': current_user['id'],
-        'email': current_user['email'],
-        'name': current_user['name'],
-        'role': current_user['role']
+        'id': current_user['UserID'],
+        'email': current_user['Email'],
+        'name': current_user['Username'],
+        'role': current_user['UserRole']
     }), 200
 
 # ==================== Supplier Routes ====================
@@ -145,22 +160,22 @@ def get_current_user(current_user):
 @token_required
 def get_suppliers(current_user):
     """Get all suppliers"""
-    query = "SELECT * FROM suppliers"
+    query = "SELECT * FROM Suppliers"
     suppliers = execute_read_query(conn, query)
     return jsonify([{
-        'id': s['id'],
-        'name': s['name'],
-        'contactInfo': s['contact_info'],
-        'website': s['website'],
-        'phone': s['phone'],
-        'createdAt': s['created_at']
+        'id': s['supplier_ID'],
+        'name': s['SupplierName'],
+        'contactInfo': s['Email'],
+        'phone': s['Phone'],
+        'website': s['Address'],
+        'createdAt': s.get('CreatedDate', None)
     } for s in suppliers]), 200
 
 @app.route('/api/suppliers/<int:supplier_id>', methods=['GET'])
 @token_required
 def get_supplier(current_user, supplier_id):
     """Get supplier by ID"""
-    query = "SELECT * FROM suppliers WHERE id = %s"
+    query = "SELECT * FROM Suppliers WHERE supplier_ID = %s"
     suppliers = execute_read_query(conn, query, (supplier_id,))
     
     if not suppliers:
@@ -168,12 +183,12 @@ def get_supplier(current_user, supplier_id):
     
     s = suppliers[0]
     return jsonify({
-        'id': s['id'],
-        'name': s['name'],
-        'contactInfo': s['contact_info'],
-        'website': s['website'],
-        'phone': s['phone'],
-        'createdAt': s['created_at']
+        'id': s['supplier_ID'],
+        'name': s['SupplierName'],
+        'contactInfo': s['Email'],
+        'phone': s['Phone'],
+        'website': s['Address'],
+        'createdAt': s.get('CreatedDate', None)
     }), 200
 
 @app.route('/api/suppliers', methods=['POST'])
@@ -186,33 +201,33 @@ def create_supplier(current_user):
         return jsonify({'message': 'Supplier name is required'}), 400
     
     query = """
-    INSERT INTO suppliers (name, contact_info, website, phone)
-    VALUES (%s, %s, %s, %s)
+    INSERT INTO Suppliers (SupplierName, ContactName, Email, Phone, Address)
+    VALUES (%s, %s, %s, %s, %s)
     """
-    values = (data['name'], data.get('contactInfo'), data.get('website'), data.get('phone'))
+    values = (data['name'], data.get('name'), data.get('contactInfo'), data.get('phone'), data.get('website'))
     execute_query(conn, query, values)
     
     # Get the newly created supplier
-    select_query = "SELECT * FROM suppliers WHERE name = %s ORDER BY id DESC LIMIT 1"
+    select_query = "SELECT * FROM Suppliers WHERE SupplierName = %s ORDER BY supplier_ID DESC LIMIT 1"
     suppliers = execute_read_query(conn, select_query, (data['name'],))
     supplier = suppliers[0]
     
-    log_audit(current_user['id'], current_user['email'], 'CREATE', 'suppliers', supplier['id'], supplier['name'], 'Added new supplier')
+    log_audit(current_user['UserID'], current_user['Email'], 'CREATE', 'Suppliers', supplier['supplier_ID'], supplier['SupplierName'], 'Added new supplier')
     
     return jsonify({
-        'id': supplier['id'],
-        'name': supplier['name'],
-        'contactInfo': supplier['contact_info'],
-        'website': supplier['website'],
-        'phone': supplier['phone'],
-        'createdAt': supplier['created_at']
+        'id': supplier['supplier_ID'],
+        'name': supplier['SupplierName'],
+        'contactInfo': supplier['Email'],
+        'phone': supplier['Phone'],
+        'website': supplier['Address'],
+        'createdAt': supplier.get('CreatedDate', None)
     }), 201
 
 @app.route('/api/suppliers/<int:supplier_id>', methods=['PUT'])
 @token_required
 def update_supplier(current_user, supplier_id):
     """Update supplier"""
-    query = "SELECT * FROM suppliers WHERE id = %s"
+    query = "SELECT * FROM Suppliers WHERE supplier_ID = %s"
     suppliers = execute_read_query(conn, query, (supplier_id,))
     
     if not suppliers:
@@ -220,34 +235,35 @@ def update_supplier(current_user, supplier_id):
     
     data = request.get_json()
     supplier = suppliers[0]
-    old_name = supplier['name']
+    old_name = supplier['SupplierName']
     
     update_query = """
-    UPDATE suppliers
-    SET name = %s, contact_info = %s, website = %s, phone = %s
-    WHERE id = %s
+    UPDATE Suppliers
+    SET SupplierName = %s, ContactName = %s, Email = %s, Phone = %s, Address = %s
+    WHERE supplier_ID = %s
     """
     values = (
-        data.get('name', supplier['name']),
-        data.get('contactInfo', supplier['contact_info']),
-        data.get('website', supplier['website']),
-        data.get('phone', supplier['phone']),
+        data.get('name', supplier['SupplierName']),
+        data.get('name', supplier.get('ContactName', '')),
+        data.get('contactInfo', supplier['Email']),
+        data.get('phone', supplier['Phone']),
+        data.get('website', supplier.get('Address', '')),
         supplier_id
     )
     execute_query(conn, update_query, values)
     
-    log_audit(current_user['id'], current_user['email'], 'UPDATE', 'suppliers', supplier_id, old_name, f'Updated supplier')
+    log_audit(current_user['UserID'], current_user['Email'], 'UPDATE', 'Suppliers', supplier_id, old_name, f'Updated supplier')
     
     # Return updated supplier
-    suppliers = execute_read_query(conn, "SELECT * FROM suppliers WHERE id = %s", (supplier_id,))
+    suppliers = execute_read_query(conn, "SELECT * FROM Suppliers WHERE supplier_ID = %s", (supplier_id,))
     s = suppliers[0]
     return jsonify({
-        'id': s['id'],
-        'name': s['name'],
-        'contactInfo': s['contact_info'],
-        'website': s['website'],
-        'phone': s['phone'],
-        'createdAt': s['created_at']
+        'id': s['supplier_ID'],
+        'name': s['SupplierName'],
+        'contactInfo': s['Email'],
+        'phone': s['Phone'],
+        'website': s['Address'],
+        'createdAt': s.get('CreatedDate', None)
     }), 200
 
 @app.route('/api/suppliers/<int:supplier_id>', methods=['DELETE'])
@@ -266,168 +282,9 @@ def delete_supplier(current_user, supplier_id):
     delete_query = "DELETE FROM suppliers WHERE id = %s"
     execute_query(conn, delete_query, (supplier_id,))
     
-    log_audit(current_user['id'], current_user['email'], 'DELETE', 'suppliers', supplier_id, supplier_name, 'Deleted supplier')
+    log_audit(current_user['UserID'], current_user['Email'], 'DELETE', 'Suppliers', supplier_id, supplier_name, 'Deleted supplier')
     
     return jsonify({'message': 'Supplier deleted'}), 200
-
-# ==================== Ingredient Routes ====================
-
-@app.route('/api/ingredients', methods=['GET'])
-@token_required
-def get_ingredients(current_user):
-    """Get all ingredients"""
-    query = """
-    SELECT i.*, s.name as supplier_name 
-    FROM ingredients i
-    LEFT JOIN suppliers s ON i.supplier_id = s.id
-    """
-    ingredients = execute_read_query(conn, query)
-    return jsonify([{
-        'id': ing['id'],
-        'name': ing['name'],
-        'supplierId': ing['supplier_id'],
-        'supplierName': ing['supplier_name'],
-        'cost': ing['cost'],
-        'link': ing['link'],
-        'storageLocation': ing['storage_location'],
-        'createdAt': ing['created_at']
-    } for ing in ingredients]), 200
-
-@app.route('/api/ingredients/<int:ingredient_id>', methods=['GET'])
-@token_required
-def get_ingredient(current_user, ingredient_id):
-    """Get ingredient by ID"""
-    query = """
-    SELECT i.*, s.name as supplier_name 
-    FROM ingredients i
-    LEFT JOIN suppliers s ON i.supplier_id = s.id
-    WHERE i.id = %s
-    """
-    ingredients = execute_read_query(conn, query, (ingredient_id,))
-    
-    if not ingredients:
-        return jsonify({'message': 'Ingredient not found'}), 404
-    
-    ing = ingredients[0]
-    return jsonify({
-        'id': ing['id'],
-        'name': ing['name'],
-        'supplierId': ing['supplier_id'],
-        'supplierName': ing['supplier_name'],
-        'cost': ing['cost'],
-        'link': ing['link'],
-        'storageLocation': ing['storage_location'],
-        'createdAt': ing['created_at']
-    }), 200
-
-@app.route('/api/ingredients', methods=['POST'])
-@token_required
-def create_ingredient(current_user):
-    """Create new ingredient"""
-    data = request.get_json()
-    
-    if not data or not data.get('name') or not data.get('supplierId'):
-        return jsonify({'message': 'Name and supplier ID are required'}), 400
-    
-    # Verify supplier exists
-    supplier_query = "SELECT * FROM suppliers WHERE id = %s"
-    suppliers = execute_read_query(conn, supplier_query, (data['supplierId'],))
-    if not suppliers:
-        return jsonify({'message': 'Supplier not found'}), 404
-    
-    query = """
-    INSERT INTO ingredients (name, supplier_id, cost, link, storage_location)
-    VALUES (%s, %s, %s, %s, %s)
-    """
-    values = (
-        data['name'],
-        data['supplierId'],
-        data.get('cost', 0),
-        data.get('link'),
-        data.get('storageLocation')
-    )
-    execute_query(conn, query, values)
-    
-    # Get the newly created ingredient
-    select_query = "SELECT * FROM ingredients WHERE name = %s ORDER BY id DESC LIMIT 1"
-    ingredients = execute_read_query(conn, select_query, (data['name'],))
-    ingredient = ingredients[0]
-    
-    log_audit(current_user['id'], current_user['email'], 'CREATE', 'ingredients', ingredient['id'], ingredient['name'], f'Added new ingredient')
-    
-    return jsonify({
-        'id': ingredient['id'],
-        'name': ingredient['name'],
-        'supplierId': ingredient['supplier_id'],
-        'cost': ingredient['cost'],
-        'link': ingredient['link'],
-        'storageLocation': ingredient['storage_location'],
-        'createdAt': ingredient['created_at']
-    }), 201
-
-@app.route('/api/ingredients/<int:ingredient_id>', methods=['PUT'])
-@token_required
-def update_ingredient(current_user, ingredient_id):
-    """Update ingredient"""
-    query = "SELECT * FROM ingredients WHERE id = %s"
-    ingredients = execute_read_query(conn, query, (ingredient_id,))
-    
-    if not ingredients:
-        return jsonify({'message': 'Ingredient not found'}), 404
-    
-    data = request.get_json()
-    ingredient = ingredients[0]
-    old_name = ingredient['name']
-    
-    update_query = """
-    UPDATE ingredients
-    SET name = %s, supplier_id = %s, cost = %s, link = %s, storage_location = %s
-    WHERE id = %s
-    """
-    values = (
-        data.get('name', ingredient['name']),
-        data.get('supplierId', ingredient['supplier_id']),
-        data.get('cost', ingredient['cost']),
-        data.get('link', ingredient['link']),
-        data.get('storageLocation', ingredient['storage_location']),
-        ingredient_id
-    )
-    execute_query(conn, update_query, values)
-    
-    log_audit(current_user['id'], current_user['email'], 'UPDATE', 'ingredients', ingredient_id, old_name, 'Updated ingredient')
-    
-    # Return updated ingredient
-    ingredients = execute_read_query(conn, "SELECT * FROM ingredients WHERE id = %s", (ingredient_id,))
-    ing = ingredients[0]
-    return jsonify({
-        'id': ing['id'],
-        'name': ing['name'],
-        'supplierId': ing['supplier_id'],
-        'cost': ing['cost'],
-        'link': ing['link'],
-        'storageLocation': ing['storage_location'],
-        'createdAt': ing['created_at']
-    }), 200
-
-@app.route('/api/ingredients/<int:ingredient_id>', methods=['DELETE'])
-@token_required
-def delete_ingredient(current_user, ingredient_id):
-    """Delete ingredient"""
-    query = "SELECT * FROM ingredients WHERE id = %s"
-    ingredients = execute_read_query(conn, query, (ingredient_id,))
-    
-    if not ingredients:
-        return jsonify({'message': 'Ingredient not found'}), 404
-    
-    ingredient = ingredients[0]
-    ingredient_name = ingredient['name']
-    
-    delete_query = "DELETE FROM ingredients WHERE id = %s"
-    execute_query(conn, delete_query, (ingredient_id,))
-    
-    log_audit(current_user['id'], current_user['email'], 'DELETE', 'ingredients', ingredient_id, ingredient_name, 'Deleted ingredient')
-    
-    return jsonify({'message': 'Ingredient deleted'}), 200
 
 # ==================== Scent Routes ====================
 
@@ -435,7 +292,7 @@ def delete_ingredient(current_user, ingredient_id):
 @token_required
 def get_scents(current_user):
     """Get all active scents (not archived)"""
-    query = "SELECT * FROM scents WHERE archived_at IS NULL"
+    query = "SELECT * FROM Scents WHERE archived_at IS NULL"
     scents = execute_read_query(conn, query)
     return jsonify([{
         'id': s['id'],
@@ -454,7 +311,7 @@ def get_scents(current_user):
 @token_required
 def get_scent(current_user, scent_id):
     """Get scent by ID"""
-    query = "SELECT * FROM scents WHERE id = %s"
+    query = "SELECT * FROM Scents WHERE id = %s"
     scents = execute_read_query(conn, query, (scent_id,))
     
     if not scents:
@@ -478,14 +335,21 @@ def get_scent(current_user, scent_id):
 @token_required
 def create_scent(current_user):
     """Create new scent"""
+    db_conn = get_db_connection()
     data = request.get_json()
     
     required_fields = ['name', 'topNotes', 'middleNotes', 'baseNotes']
     if not data or not all(data.get(field) for field in required_fields):
         return jsonify({'message': 'Name and all note types are required'}), 400
     
+    # Check for duplicate scent name (case-insensitive)
+    dup_query = "SELECT * FROM Scents WHERE LOWER(name) = LOWER(%s) AND archived_at IS NULL"
+    duplicates = execute_read_query(db_conn, dup_query, (data['name'],))
+    if duplicates:
+        return jsonify({'message': f'Scent "{data["name"]}" already exists'}), 409
+    
     query = """
-    INSERT INTO scents (name, top_notes, middle_notes, base_notes, all_notes, essential_oils, created_by)
+    INSERT INTO Scents (name, top_notes, middle_notes, base_notes, all_notes, essential_oils, created_by)
     VALUES (%s, %s, %s, %s, %s, %s, %s)
     """
     values = (
@@ -495,16 +359,16 @@ def create_scent(current_user):
         data['baseNotes'],
         data.get('allNotes', ''),
         data.get('essentialOils', ''),
-        current_user['email']
+        current_user['Email']
     )
-    execute_query(conn, query, values)
+    execute_query(db_conn, query, values)
     
     # Get the newly created scent
-    select_query = "SELECT * FROM scents WHERE name = %s ORDER BY id DESC LIMIT 1"
-    scents = execute_read_query(conn, select_query, (data['name'],))
+    select_query = "SELECT * FROM Scents WHERE name = %s ORDER BY id DESC LIMIT 1"
+    scents = execute_read_query(db_conn, select_query, (data['name'],))
     scent = scents[0]
     
-    log_audit(current_user['id'], current_user['email'], 'CREATE', 'scents', scent['id'], scent['name'], 'Created new scent formula')
+    log_audit(current_user['UserID'], current_user['Email'], 'CREATE', 'Scents', scent['id'], scent['name'], 'Created new scent formula')
     
     return jsonify({
         'id': scent['id'],
@@ -523,7 +387,7 @@ def create_scent(current_user):
 @token_required
 def update_scent(current_user, scent_id):
     """Update scent"""
-    query = "SELECT * FROM scents WHERE id = %s"
+    query = "SELECT * FROM Scents WHERE id = %s"
     scents = execute_read_query(conn, query, (scent_id,))
     
     if not scents:
@@ -534,7 +398,7 @@ def update_scent(current_user, scent_id):
     old_name = scent['name']
     
     update_query = """
-    UPDATE scents
+    UPDATE Scents
     SET name = %s, top_notes = %s, middle_notes = %s, base_notes = %s, all_notes = %s, essential_oils = %s
     WHERE id = %s
     """
@@ -549,10 +413,10 @@ def update_scent(current_user, scent_id):
     )
     execute_query(conn, update_query, values)
     
-    log_audit(current_user['id'], current_user['email'], 'UPDATE', 'scents', scent_id, old_name, 'Updated scent formula')
+    log_audit(current_user['UserID'], current_user['Email'], 'UPDATE', 'Scents', scent_id, old_name, 'Updated scent formula')
     
     # Return updated scent
-    scents = execute_read_query(conn, "SELECT * FROM scents WHERE id = %s", (scent_id,))
+    scents = execute_read_query(conn, "SELECT * FROM Scents WHERE id = %s", (scent_id,))
     s = scents[0]
     return jsonify({
         'id': s['id'],
@@ -571,7 +435,7 @@ def update_scent(current_user, scent_id):
 @token_required
 def delete_scent(current_user, scent_id):
     """Archive scent (soft delete)"""
-    query = "SELECT * FROM scents WHERE id = %s"
+    query = "SELECT * FROM Scents WHERE id = %s"
     scents = execute_read_query(conn, query, (scent_id,))
     
     if not scents:
@@ -579,10 +443,10 @@ def delete_scent(current_user, scent_id):
     
     scent = scents[0]
     
-    update_query = "UPDATE scents SET archived_at = CURRENT_TIMESTAMP WHERE id = %s"
+    update_query = "UPDATE Scents SET archived_at = CURRENT_TIMESTAMP WHERE id = %s"
     execute_query(conn, update_query, (scent_id,))
     
-    log_audit(current_user['id'], current_user['email'], 'DELETE', 'scents', scent_id, scent['name'], 'Archived scent')
+    log_audit(current_user['UserID'], current_user['Email'], 'DELETE', 'Scents', scent_id, scent['name'], 'Archived scent')
     
     return jsonify({'message': 'Scent archived'}), 200
 
@@ -591,6 +455,7 @@ def delete_scent(current_user, scent_id):
 def import_scents(current_user):
     """Import scents from CSV/Excel file"""
     try:
+        db_conn = get_db_connection()
         data = request.get_json()
         
         if not data or 'scents' not in data:
@@ -613,15 +478,15 @@ def import_scents(current_user):
                     continue
                 
                 # Check for duplicates
-                dup_query = "SELECT * FROM scents WHERE name = %s AND archived_at IS NULL"
-                duplicates = execute_read_query(conn, dup_query, (scent_data['name'],))
+                dup_query = "SELECT * FROM Scents WHERE name = %s AND archived_at IS NULL"
+                duplicates = execute_read_query(db_conn, dup_query, (scent_data['name'],))
                 if duplicates:
                     errors.append(f"Row {index + 1}: Scent '{scent_data['name']}' already exists")
                     continue
                 
                 # Insert scent
                 insert_query = """
-                INSERT INTO scents (name, top_notes, middle_notes, base_notes, all_notes, essential_oils, created_by)
+                INSERT INTO Scents (name, top_notes, middle_notes, base_notes, all_notes, essential_oils, created_by)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """
                 values = (
@@ -631,10 +496,10 @@ def import_scents(current_user):
                     scent_data.get('baseNotes', '').strip() or scent_data.get('base_notes', '').strip(),
                     scent_data.get('allNotes', '').strip() or scent_data.get('all_notes', '').strip(),
                     scent_data.get('essentialOils', '').strip() or scent_data.get('essential_oils', '').strip(),
-                    current_user['email']
+                    current_user['Email']
                 )
                 
-                execute_query(conn, insert_query, values)
+                execute_query(db_conn, insert_query, values)
                 imported_count += 1
                 
             except Exception as e:
@@ -642,10 +507,10 @@ def import_scents(current_user):
         
         # Log audit
         log_audit(
-            current_user['id'],
-            current_user['email'],
+            current_user['UserID'],
+            current_user['Email'],
             'CREATE',
-            'scents',
+            'Scents',
             0,
             filename,
             f"Imported {imported_count} scents from {filename}. Errors: {len(errors)}"
@@ -660,15 +525,172 @@ def import_scents(current_user):
         
     except Exception as e:
         log_audit(
-            current_user['id'],
-            current_user['email'],
+            current_user['UserID'],
+            current_user['Email'],
             'CREATE',
-            'scents',
+            'Scents',
             0,
             'import_error',
             f"Import failed: {str(e)}"
         )
         return jsonify({'error': f'Import failed: {str(e)}'}), 500
+
+# ==================== Essential Oils Routes ====================
+
+@app.route('/api/essential-oils', methods=['GET'])
+@token_required
+def get_essential_oils(current_user):
+    """Get all essential oils"""
+    db_conn = get_db_connection()
+    query = """
+    SELECT eo.*, s.SupplierName 
+    FROM Essential_oil eo
+    LEFT JOIN Suppliers s ON eo.supplier_ID = s.supplier_ID
+    """
+    oils = execute_read_query(db_conn, query)
+    return jsonify([{
+        'id': oil['oil_ID'],
+        'name': oil['oil_name'],
+        'supplierId': oil['supplier_ID'],
+        'supplierName': oil.get('SupplierName', ''),
+        'unitCost': oil['unit_cost'],
+        'description': oil['oil_description'],
+        'status': oil['oil_status']
+    } for oil in oils]), 200
+
+@app.route('/api/essential-oils/<int:oil_id>', methods=['GET'])
+@token_required
+def get_essential_oil(current_user, oil_id):
+    """Get essential oil by ID"""
+    query = """
+    SELECT eo.*, s.SupplierName 
+    FROM Essential_oil eo
+    LEFT JOIN Suppliers s ON eo.supplier_ID = s.supplier_ID
+    WHERE eo.oil_ID = %s
+    """
+    oils = execute_read_query(conn, query, (oil_id,))
+    
+    if not oils:
+        return jsonify({'message': 'Essential oil not found'}), 404
+    
+    oil = oils[0]
+    return jsonify({
+        'id': oil['oil_ID'],
+        'name': oil['oil_name'],
+        'supplierId': oil['supplier_ID'],
+        'supplierName': oil.get('SupplierName', ''),
+        'unitCost': oil['unit_cost'],
+        'description': oil['oil_description'],
+        'status': oil['oil_status']
+    }), 200
+
+@app.route('/api/essential-oils', methods=['POST'])
+@token_required
+def create_essential_oil(current_user):
+    """Create new essential oil"""
+    db_conn = get_db_connection()
+    data = request.get_json()
+    
+    if not data or not data.get('name'):
+        return jsonify({'message': 'Oil name is required'}), 400
+    
+    # Check for duplicate oil name (case-insensitive)
+    dup_query = "SELECT * FROM Essential_oil WHERE LOWER(oil_name) = LOWER(%s)"
+    duplicates = execute_read_query(db_conn, dup_query, (data['name'],))
+    if duplicates:
+        return jsonify({'message': f'Oil "{data["name"]}" already exists'}), 409
+    
+    query = """
+    INSERT INTO Essential_oil (supplier_ID, oil_name, oil_description, unit_cost, oil_status)
+    VALUES (%s, %s, %s, %s, %s)
+    """
+    values = (
+        data.get('supplierId'),
+        data['name'],
+        data.get('description', ''),
+        data.get('unitCost', 0),
+        data.get('status', 'active')
+    )
+    execute_query(db_conn, query, values)
+    
+    # Get the newly created oil
+    select_query = "SELECT * FROM Essential_oil WHERE oil_name = %s ORDER BY oil_ID DESC LIMIT 1"
+    oils = execute_read_query(db_conn, select_query, (data['name'],))
+    oil = oils[0]
+    
+    log_audit(current_user['UserID'], current_user['Email'], 'CREATE', 'oils', oil['oil_ID'], oil['oil_name'], 'Added new essential oil')
+    
+    return jsonify({
+        'id': oil['oil_ID'],
+        'name': oil['oil_name'],
+        'supplierId': oil['supplier_ID'],
+        'unitCost': oil['unit_cost'],
+        'description': oil['oil_description'],
+        'status': oil['oil_status']
+    }), 201
+
+@app.route('/api/essential-oils/<int:oil_id>', methods=['PUT'])
+@token_required
+def update_essential_oil(current_user, oil_id):
+    """Update essential oil"""
+    query = "SELECT * FROM Essential_oil WHERE oil_ID = %s"
+    oils = execute_read_query(conn, query, (oil_id,))
+    
+    if not oils:
+        return jsonify({'message': 'Essential oil not found'}), 404
+    
+    data = request.get_json()
+    oil = oils[0]
+    old_name = oil['oil_name']
+    
+    update_query = """
+    UPDATE Essential_oil
+    SET supplier_ID = %s, oil_name = %s, oil_description = %s, unit_cost = %s, oil_status = %s
+    WHERE oil_ID = %s
+    """
+    values = (
+        data.get('supplierId', oil['supplier_ID']),
+        data.get('name', oil['oil_name']),
+        data.get('description', oil['oil_description']),
+        data.get('unitCost', oil['unit_cost']),
+        data.get('status', oil['oil_status']),
+        oil_id
+    )
+    execute_query(conn, update_query, values)
+    
+    log_audit(current_user['UserID'], current_user['Email'], 'UPDATE', 'oils', oil_id, old_name, 'Updated essential oil')
+    
+    # Return updated oil
+    oils = execute_read_query(conn, "SELECT * FROM Essential_oil WHERE oil_ID = %s", (oil_id,))
+    oil = oils[0]
+    return jsonify({
+        'id': oil['oil_ID'],
+        'name': oil['oil_name'],
+        'supplierId': oil['supplier_ID'],
+        'unitCost': oil['unit_cost'],
+        'description': oil['oil_description'],
+        'status': oil['oil_status']
+    }), 200
+
+@app.route('/api/essential-oils/<int:oil_id>', methods=['DELETE'])
+@token_required
+def delete_essential_oil(current_user, oil_id):
+    """Delete essential oil"""
+    query = "SELECT * FROM Essential_oil WHERE oil_ID = %s"
+    oils = execute_read_query(conn, query, (oil_id,))
+    
+    if not oils:
+        return jsonify({'message': 'Essential oil not found'}), 404
+    
+    oil = oils[0]
+    oil_name = oil['oil_name']
+    
+    delete_query = "DELETE FROM Essential_oil WHERE oil_ID = %s"
+    execute_query(conn, delete_query, (oil_id,))
+    
+    log_audit(current_user['UserID'], current_user['Email'], 'DELETE', 'oils', oil_id, oil_name, 'Deleted essential oil')
+    
+    return jsonify({'message': 'Essential oil deleted'}), 200
 
 # ==================== Audit Log Routes ====================
 
@@ -676,7 +698,7 @@ def import_scents(current_user):
 @token_required
 def get_audit_logs(current_user):
     """Get all audit logs"""
-    query = "SELECT * FROM audit_logs ORDER BY timestamp DESC"
+    query = "SELECT * FROM AuditLog ORDER BY Timestamp DESC"
     logs = execute_read_query(conn, query)
     return jsonify([{
         'id': log['id'],
@@ -698,7 +720,7 @@ def filter_audit_logs(current_user):
     table = request.args.get('table')
     user = request.args.get('user')
     
-    query = "SELECT * FROM audit_logs WHERE 1=1"
+    query = "SELECT * FROM AuditLog WHERE 1=1"
     values = []
     
     if action:
@@ -741,8 +763,8 @@ def export_data(current_user):
     """
     ingredients = execute_read_query(conn, ingredients_query)
     
-    scents = execute_read_query(conn, "SELECT * FROM scents WHERE archived_at IS NULL")
-    logs = execute_read_query(conn, "SELECT * FROM audit_logs ORDER BY timestamp DESC")
+    scents = execute_read_query(conn, "SELECT * FROM Scents WHERE archived_at IS NULL")
+    logs = execute_read_query(conn, "SELECT * FROM AuditLog ORDER BY Timestamp DESC")
     
     export_data = {
         'suppliers': [{
@@ -827,7 +849,7 @@ def import_data(current_user):
         
         # Import scents
         for scent in data.get('scents', []):
-            existing_query = "SELECT * FROM scents WHERE name = %s"
+            existing_query = "SELECT * FROM Scents WHERE name = %s"
             existing = execute_read_query(conn, existing_query, (scent['name'],))
             if not existing:
                 insert_query = """
@@ -839,11 +861,11 @@ def import_data(current_user):
                     scent['topNotes'],
                     scent['middleNotes'],
                     scent['baseNotes'],
-                    scent.get('createdBy', current_user['email'])
+                    scent.get('createdBy', current_user['Email'])
                 )
                 execute_query(conn, insert_query, values)
         
-        log_audit(current_user['id'], current_user['email'], 'CREATE', 'import', 0, 'Data Import', 'Imported suppliers, ingredients, and scents')
+        log_audit(current_user['UserID'], current_user['Email'], 'CREATE', 'import', 0, 'Data Import', 'Imported suppliers, ingredients, and scents')
         
         return jsonify({'message': 'Data imported successfully'}), 200
     except Exception as e:

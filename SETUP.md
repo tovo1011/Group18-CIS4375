@@ -1,6 +1,8 @@
 # Perfume Store Dashboard - Complete Setup Guide
 
-This document provides step-by-step instructions to set up and run the entire Perfume Store Dashboard project (frontend + backend).
+This document provides step-by-step instructions to set up and run the entire Perfume Store Dashboard project (frontend + backend) with the **new database schema**.
+
+**Database**: MySQL 5.7+ (Required - not SQLite compatible)
 
 ## Project Structure
 
@@ -8,8 +10,9 @@ This document provides step-by-step instructions to set up and run the entire Pe
 Group18-CIS4375/
 ├── backend/                  # Flask REST API
 │   ├── app.py              # Main Flask application
-│   ├── sql.py              # Database utilities & schema
+│   ├── sql.py              # Database utilities & schema initialization
 │   ├── creds.py            # Configuration & credentials
+│   ├── db_schema.sql       # Complete database schema (reference)
 │   ├── requirements.txt     # Python dependencies
 │   └── README.md            # Backend documentation
 ├── frontend/               # Vue 3 + Vite
@@ -24,117 +27,135 @@ Group18-CIS4375/
 └── README.md               # Project overview
 ```
 
-## Architecture Overview
+## Database Schema
 
-The backend uses a **three-file architecture** for clean separation of concerns:
+The application uses the following **11 tables** (all created automatically on first run):
 
-1. **creds.py** - All configuration and credentials in one place
-   - Database connection settings
-   - Flask configuration
-   - Easy to switch between SQLite and AWS RDS
+1. **Users** - User accounts and authentication
+2. **Suppliers** - Ingredient suppliers and vendor information
+3. **Essential_oil** - Essential oils/ingredients inventory
+4. **Scent_Essential_Oil** - Junction table linking scents to essential oils
+5. **Scents** - Scent formulas and compositions
+6. **Products** - Product variants of scents
+7. **DashBoardMetrics** - Dashboard analytics
+8. **AuditLog** - Complete audit trail of all actions
+9. **Customers** - Customer information
+10. **Order** - Customer orders
+11. **Order_Item** - Individual items in orders
 
-2. **sql.py** - Database abstraction layer
-   - `create_connection()` - Establish DB connection
-   - `execute_query()` - Write operations
-   - `execute_read_query()` - Read operations
-   - `init_db_schema()` - Create all tables
+### Important Column Names
 
-3. **app.py** - Flask REST API
-   - Imports from creds and sql
-   - All API routes and business logic
-   - Authentication, CRUD, audit logging
-
-The frontend uses **Pinia stores** that connect to the backend API instead of using mock data.
+- **Users**: `UserID`, `Email`, `PasswordHash`, `Username`, `UserRole`
+- **Suppliers**: `supplier_ID`, `SupplierName`, `Email`, `Phone`, `Address`
+- **Scents**: `id`, `name`, `top_notes`, `middle_notes`, `base_notes`, `all_notes`, `essential_oils`, `created_by`, `created_at`, `archived_at`
+- **AuditLog**: `AuditID`, `UserID`, `AuditAction`, `TableName`, `Timestamp`
 
 ## Prerequisites
 
 - **Backend**: Python 3.8+, pip
 - **Frontend**: Node.js 16+, npm or yarn
-- **Database**: MySQL 5.7+ (local or remote)
-  - For local development: Install [MySQL Community Server](https://dev.mysql.com/downloads/mysql/)
-  - For Windows: Use [MySQL Installer](https://dev.mysql.com/downloads/windows/installer/)
+- **Database**: MySQL 5.7+ **(Required - SQLite not supported)**
+  - **For local development**: Install [MySQL Community Server](https://dev.mysql.com/downloads/mysql/)
+  - **Windows**: Use [MySQL Installer](https://dev.mysql.com/downloads/windows/installer/)
+  - **macOS**: `brew install mysql`
+  - **Linux**: `apt-get install mysql-server`
+- **Verify MySQL is running** before starting the backend
 
 ## Setup Instructions
 
 ### 1. Backend Setup
 
-#### 1.1 Configure Database Credentials
+#### 1.1 Verify MySQL is Running
 
-First, you must update `backend/creds.py` with your MySQL database connection details.
-
-Edit `backend/creds.py`:
-
-```python
-class Creds:
-    # MySQL Configuration
-    db_type = "mysql"
-    host = "127.0.0.1"              # Your MySQL host (localhost for local dev)
-    user = "root"                     # Your MySQL username
-    password = "your_password"        # Your MySQL password
-    database = "perfume_store"        # Database name
-    
-    # Flask Configuration
-    SECRET_KEY = "your-secret-key-change-in-production"
-    JWT_EXPIRATION_HOURS = 24
-    DEBUG = True
-    HOST = "0.0.0.0"
-    PORT = 5000
+**Windows**:
+```powershell
+# Check if MySQL is running
+Get-Service MySQL*
 ```
 
-**Important**: Replace `host`, `user`, `password` with your actual MySQL credentials.
+**macOS/Linux**:
+```bash
+mysql --version
+```
 
 #### 1.2 Create the Database
 
-Before running the app, create the database in MySQL:
+Open a terminal and connect to MySQL:
 
 ```bash
 mysql -u root -p
 ```
 
-Then run:
+Enter your MySQL password, then run:
 
 ```sql
 CREATE DATABASE IF NOT EXISTS perfume_store;
+EXIT;
 ```
 
-#### 1.3 Install Python Dependencies
+#### 1.3 Configure Backend Credentials
+
+Edit `backend/creds.py` with your MySQL connection details:
+
+```python
+class Creds:
+    # MySQL Configuration
+    host = "127.0.0.1"              # localhost for local development
+    user = "root"                     # Your MySQL username
+    password = "your_password"        # Your MySQL password
+    database = "perfume_store"        # Database name created above
+    
+    # Flask Configuration
+    SECRET_KEY = "your-secret-key-change-in-production-min-32-chars"  # Must be at least 32 characters for security
+    JWT_EXPIRATION_HOURS = 24
+    DEBUG = True                      # Set to False in production
+    HOST = "0.0.0.0"
+    PORT = 5000
+```
+
+**Important**: 
+- Replace `password` with your actual MySQL password
+- Replace `SECRET_KEY` with a **minimum 32 characters** long random string (recommended: 64+ characters) to avoid JWT warnings
+
+#### 1.4 Install Python Dependencies
+
+Open a terminal in the `backend` folder:
 
 ```bash
 cd backend
 pip install -r requirements.txt
 ```
 
-#### 1.4 Start the Backend
+This installs:
+- `flask` - Web framework
+- `flask-cors` - Cross-origin requests
+- `PyJWT` - Authentication tokens  
+- `mysql-connector-python` - MySQL database driver
+- `werkzeug` - Password hashing
+
+#### 1.5 Start the Backend Server
 
 ```bash
 python app.py
 ```
 
-This starts the Flask server on `http://localhost:5000` connected to MySQL database.
-
-#### 1.5 Load Sample Data
-
-In a separate terminal:
-
-```bash
-curl -X POST http://localhost:5000/api/init-db
+You should see:
+```
+MySQL connection successful!
+Database initialized successfully
+Table 'Users' created or verified successfully
+Table 'Scents' created or verified successfully
+[...more tables...]
+WARNING: This is a development server. Do not use it in production.
+Running on http://127.0.0.1:5000
 ```
 
-Or with Python:
+The backend is now ready on `http://localhost:5000`.
 
-```bash
-python -c "import requests; requests.post('http://localhost:5000/api/init-db')"
-```
-
-You should see the response:
-```json
-{"message": "Database initialized with sample data"}
-```
-
-If you see errors, check:
-- MySQL is running
-- Database credentials in `creds.py` are correct
-- Backend server is running
+**Troubleshooting**:
+- If you see `Connection error`, check MySQL is running and credentials in `creds.py` are correct
+- If you see `ModuleNotFoundError`, run `pip install -r requirements.txt` again
+- If you see MySQL error, verify the `perfume_store` database exists
 
 ### 2. Frontend Setup
 
@@ -165,15 +186,34 @@ Frontend will run on `http://localhost:5173` (or another port if 5173 is busy).
 
 ### 3. Verify the Setup
 
-1. Open `http://localhost:5173` in your browser
-2. Click **Login** and use sample credentials:
-   - Email: `manager@t4scents.com`
-   - Password: `manager123` (or any password - demo mode creates users)
-3. You should see the dashboard with:
-   - **Suppliers** - example: Global Florals Inc
-   - **Ingredients** - example: Rose Oil
-   - **Scents** - example: Rose Elegance
-   - **Audit Logs** - showing all your actions
+1. **Start the backend** (in one terminal):
+   ```bash
+   cd backend
+   python app.py
+   ```
+
+2. **Start the frontend** (in another terminal):
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+
+3. **Open the app**:
+   - Open `http://localhost:5173` in your browser
+   - To login, use **any email and password**:
+     - Email: `test@example.com`
+     - Password: `any_password`
+   - The backend will automatically create a user account for demo purposes
+
+4. **You should see the dashboard with**:
+   - **Suppliers** - Manage suppliers and vendors
+   - **Scents** - Create and manage scent formulas
+   - **Audit Logs** - Complete audit trail of all actions
+
+5. **Try these features**:
+   - Click **"+ Add Supplier"** to create a new supplier
+   - Click **"+ Add Scent"** to create a new scent formula
+   - View **Audit Logs** to see all recorded actions
 
 ## How the Integration Works
 
@@ -182,15 +222,19 @@ Frontend will run on `http://localhost:5173` (or another port if 5173 is busy).
 ```
 Vue Component
     ↓
-Click button (e.g., "Add Ingredient")
+Click button (e.g., "Add Supplier")
     ↓
-Pinia Store (e.g., useIngredientStore)
+Pinia Store (e.g., useSupplierStore)
     ↓
-Axios API Call
+Axios API Call with JWT Token
     ↓
-Backend Flask Route
+Backend Flask Route (@token_required decorator)
     ↓
-SQL Database Operation
+Verify User from Database
+    ↓
+Execute SQL Operation
+    ↓
+Log to AuditLog Table
     ↓
 Return JSON Response
     ↓
@@ -199,46 +243,53 @@ Pinia Updates State
 Vue Component Re-renders
 ```
 
-### Example: Adding an Ingredient
+### Example: Adding a Supplier
 
-1. **Frontend** (`IngredientsView.vue`):
+1. **Frontend** (`SuppliersView.vue`):
    ```javascript
-   const ingredientStore = useIngredientStore()
-   await ingredientStore.addIngredient({
-     name: 'Jasmine Oil',
-     supplierId: 1,
-     cost: 55.00,
-     link: 'https://...',
-     storageLocation: 'Rack C1'
+   const supplierStore = useSupplierStore()
+   await supplierStore.addSupplier({
+     name: 'Global Florals Inc',
+     contactInfo: 'contact@global-florals.com',
+     phone: '+1-800-555-0100',
+     website: 'https://global-florals.com'
    })
    ```
 
-2. **Pinia Store** (`src/stores/ingredients.js`):
+2. **Pinia Store** (`src/stores/suppliers.js`):
    ```javascript
-   const addIngredient = async (ingredient) => {
+   const addSupplier = async (supplier) => {
      const response = await axios.post(
-       `${API_URL}/ingredients`,
-       ingredient,
-       { headers: { 'Authorization': `Bearer ${token}` } }
+       `${API_URL}/suppliers`,
+       supplier,
+       { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } }
      )
-     ingredients.value.push(response.data)
+     suppliers.value.push(response.data)
+     return response.data
    }
    ```
 
-3. **Backend** (`app.py` route):
+3. **Backend Route** (`app.py`):
    ```python
-   @app.route('/api/ingredients', methods=['POST'])
+   @app.route('/api/suppliers', methods=['POST'])
    @token_required
-   def create_ingredient(current_user):
-       # Validate and insert into database
-       # Log the action in audit_logs table
-       # Return created ingredient
+   def create_supplier(current_user):
+       data = request.get_json()
+       # Insert into Suppliers table
+       # Log to AuditLog table
+       # Return created supplier with capitalized columns
+       return jsonify({
+           'id': supplier['supplier_ID'],
+           'name': supplier['SupplierName'],
+           'contactInfo': supplier['Email'],
+           # ...
+       }), 201
    ```
 
 4. **Database** (`sql.py`):
-   - Insert new ingredient record
-   - Automatically records audit log entry
-   - Returns data to frontend
+   - Executes INSERT into `Suppliers` table
+   - Automatically records entry in `AuditLog` table  
+   - Returns data in JSON format to frontend
 
 ## Switching to AWS RDS MySQL
 
@@ -251,23 +302,22 @@ Edit `backend/creds.py` with your RDS endpoint:
 ```python
 class Creds:
     # MySQL Configuration (AWS RDS)
-    db_type = "mysql"
     host = "your-rds-endpoint.us-east-1.rds.amazonaws.com"
     user = "admin"
-    password = "your_password_here"
+    password = "your_secure_password"
     database = "perfume_store"
     
     # Flask Configuration
     SECRET_KEY = "your-secret-key-change-in-production"
     JWT_EXPIRATION_HOURS = 24
-    DEBUG = True
+    DEBUG = False  # Important: set to False in production
     HOST = "0.0.0.0"
     PORT = 5000
 ```
 
-### Step 2: Ensure Database Exists on RDS
+### Step 2: Create Database on RDS
 
-Connect to your RDS instance and create the database:
+Connect to your RDS instance:
 
 ```bash
 mysql -h your-rds-endpoint.us-east-1.rds.amazonaws.com -u admin -p
@@ -277,6 +327,7 @@ Then:
 
 ```sql
 CREATE DATABASE IF NOT EXISTS perfume_store;
+EXIT;
 ```
 
 ### Step 3: Restart Backend
@@ -285,79 +336,207 @@ CREATE DATABASE IF NOT EXISTS perfume_store;
 python app.py
 ```
 
-The backend will automatically connect to your RDS instance.
+The backend will automatically create all 11 tables in RDS during first run.
 
-### Step 4: Initialize RDS Database
+### Step 4: Update Frontend (if deploying)
 
-```bash
-curl -X POST http://localhost:5000/api/init-db
+Edit `frontend/.env.local`:
+
+```env
+VITE_API_URL=https://your-api-domain.com/api
 ```
-
-This creates all tables and sample data in RDS.
 
 ## API Testing
 
-### Test Login
+### Test Login (creates user automatically)
 
 ```bash
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "manager@t4scents.com", "password": "test"}'
+  -d '{"email": "test@example.com", "password": "any_password"}'
 ```
 
-### Get Suppliers (requires token)
+Response:
+```json
+{
+  "token": "eyJhbGc...",
+  "user": {
+    "id": 1,
+    "email": "test@example.com",
+    "name": "test",
+    "role": "manager"
+  }
+}
+```
+
+### Get All Suppliers (requires token)
 
 ```bash
 curl http://localhost:5000/api/suppliers \
-  -H "Authorization: Bearer <your-token-here>"
+  -H "Authorization: Bearer eyJhbGc..."
 ```
 
-### Create Ingredient (requires token)
+### Create Supplier (requires token)
 
 ```bash
-curl -X POST http://localhost:5000/api/ingredients \
-  -H "Authorization: Bearer <your-token-here>" \
+curl -X POST http://localhost:5000/api/suppliers \
+  -H "Authorization: Bearer eyJhbGc..." \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Neroli Oil",
-    "supplierId": 2,
-    "cost": 75.00,
-    "link": "https://example.com",
-    "storageLocation": "Rack D2"
+    "name": "Essential Botanicals",
+    "contactInfo": "info@botanicals.com",
+    "phone": "+1-800-555-0200",
+    "website": "https://botanicals.com"
   }'
 ```
 
-## Common Issues
+### Create Scent (requires token)
+
+```bash
+curl -X POST http://localhost:5000/api/scents \
+  -H "Authorization: Bearer eyJhbGc..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Rose Romance",
+    "topNotes": "Bergamot, Lemon",
+    "middleNotes": "Rose, Geranium",
+    "baseNotes": "Sandalwood, Musk",
+    "allNotes": "Bergamot, Lemon, Rose, Geranium, Sandalwood, Musk",
+    "essentialOils": "Rose oil, Sandalwood oil"
+  }'
+```
+
+### Get Audit Logs (requires token)
+
+```bash
+curl http://localhost:5000/api/audit-logs \
+  -H "Authorization: Bearer eyJhbGc..."
+```
+
+## CSV/Excel Import - Smart Note Parsing & Essential Oils
+
+The Import/Export feature includes intelligent parsing for fragrance notes AND automatic essential oils extraction. This means you can import scent data in two formats:
+
+### Format 1: Separated Note Columns (Recommended)
+
+**Most explicit and recommended format:**
+
+| Name | Top Notes | Middle Notes | Base Notes | Essential Oils |
+|------|-----------|--------------|-----------|-----------------|
+| Rose Romance | Bergamot, Lemon | Rose, Jasmine | Sandalwood, Musk | Rose oil, Sandalwood |
+| Ocean Breeze | Lemon, Sea Water | Waterlily, Kelp | Amberwood, Musk | - |
+
+The backend will use these columns exactly as provided. **Essential oils from each row will be automatically extracted and added to your Essential Oils library.**
+
+### Format 2: Combined Notes (Auto-Parsed)
+
+**If your data only has a "Notes" or "Fragrance Notes" column:**
+
+| Name | Fragrance Notes |
+|------|-----------------|
+| Rose Romance | (Bergamot, Lemon, Rose, Jasmine, Sandalwood, Musk) |
+| Ocean Breeze | Lemon, Sea Water, Waterlily, Kelp, Amberwood, Musk |
+
+**The app will automatically split the notes into thirds:**
+- **Position 1/3** → Top Notes  
+- **Position 2/3** → Middle Notes  
+- **Position 3/3** → Base Notes
+
+**Example parsing:**
+```
+Input:  "(light apple, rose, carnation, jasmine, suede, musk, wood)"
+↓
+Parsed into 7 notes: [light apple, rose, carnation, jasmine, suede, musk, wood]
+↓
+Split into thirds:
+  Top (1-3):     light apple, rose, carnation
+  Middle (4-5):  jasmine, suede
+  Base (6-7):    musk, wood
+```
+
+### Accepted Column Names
+
+The import parser recognizes these column name variations (case-insensitive):
+
+| Field | Accepted Names |
+|-------|-----------------|
+| Scent Name | Name, Scent Name, name, scentName |
+| Top Notes | Top Notes, topNotes, topnotes, top |
+| Middle Notes | Middle Notes, middleNotes, middlenotes, middle |
+| Base Notes | Base Notes, baseNotes, basenotes, base |
+| Combined Notes | Fragrance Notes, All Notes, allNotes, notes, fragrance |
+| Oils/Ingredients | Essential Oils, essentialOils, oils, ingredients |
+
+### Import Tips
+
+1. **Use Format 1 for best results** - Separate columns give you full control over note categorization
+2. **Essential Oils will be auto-imported** - Any oils listed in the "Essential Oils" column will be automatically added to your Essential Oils library
+3. **Keep note lists short** - 3-7 notes per scent works best for auto-parsing
+4. **Use commas as separators** - The parser splits by commas, so use them consistently
+5. **Remove extra parentheses** - The auto-parser removes `()`, but keep them minimal
+6. **File size limit** - Maximum 10MB per import
+
+### How Essential Oils Import Works
+
+When you upload a CSV/Excel file with an "Essential Oils" column:
+
+1. **Scent data is imported** and each scent formula is created
+2. **Essential oils are extracted** from the "Essential Oils" column (comma-separated values)
+3. **Unique oils are identified** - duplicates are automatically removed
+4. **Oils are added to the Essential Oils library** with "active" status
+5. **Import summary shows** how many scents and oils were created
+
+Example: If you import 50 scents with oils, but only 25 unique oils are mentioned, you'll see:
+- ✅ Successfully imported 50 scents and added 25 essential oils
+
+### Example CSV for Import
+
+```csv
+Name,Top Notes,Middle Notes,Base Notes,Essential Oils
+Rose Elegance,Bergamot Lemon,Rose Geranium,Sandalwood Musk,Rose oil Sandalwood
+Citrus Dream,Lemon Grapefruit,Orange Blossom Neroli,Cedarwood Amber,Lemon oil Orange
+Floral Secret,Bergamot,Jasmine Iris,Oakmoss Vetiver,Jasmine Iris oil
+Ocean Breeze,Lemon Sea Water,Waterlily Kelp,Amberwood Musk,"Kelp oil, Sea salt"
+```
+
+**What happens during import:**
+- 4 scent formulas are created
+- 8 unique essential oils are extracted and added to the Essential Oils library:
+  - Rose oil, Sandalwood, Lemon oil, Orange, Jasmine, Iris oil, Kelp oil, Sea salt
+- Any duplicate oil names are automatically skipped
 
 ### 1. Connection error: 'NoneType' object has no attribute 'cursor'
 
 **Error**: Backend throws error when trying to login or access API
 
 **Solution**:
-- Check that MySQL is running
-- Verify database credentials in `backend/creds.py` are correct
-- Ensure the `perfume_store` database exists in MySQL
-- Check that `mysql-connector-python` is installed: `pip install mysql-connector-python`
+- Check that **MySQL is running**: `mysql -u root -p` (or use MySQL Workbench)
+- Verify credentials in `backend/creds.py` match your MySQL setup
+- Ensure the `perfume_store` database exists: `CREATE DATABASE perfume_store;`
+- Verify `mysql-connector-python` is installed: `pip install mysql-connector-python`
 
 ### 2. Frontend can't reach backend
 
-**Error**: `Cannot GET http://localhost:5000/api/...`
+**Error**: `Cannot GET http://localhost:5000/api/...` or CORS errors
 
 **Solution**:
-- Ensure backend is running: `python app.py`
+- Ensure backend is running: `python app.py` (should show "Running on http://127.0.0.1:5000")
 - Check `.env.local` has correct `VITE_API_URL`: `http://localhost:5000/api`
-- Check CORS is enabled in `app.py`: `CORS(app)`
-- Check backend logs for connection errors
+- Check CORS is enabled in `app.py`: `CORS(app)` (it is by default)
+- Try accessing backend directly: `curl http://localhost:5000/api/auth/login`
 
-### 3. JWT token expired
+### 3. JWT token errors
 
-**Error**: 401 Token has expired
+**Error**: `401 Invalid token`, `401 Token is missing`, or `401 Token has expired`
 
-**Solution**: Login again to get a new token. Tokens expire after 24 hours (configurable in `creds.py`).
+**Solutions**:
+- Token has expired: Login again to get a new token (expires after 24 hours by default)
+- Invalid format: Ensure `Authorization` header is: `Bearer <token_here>` (with space)
+- Missing header: Check that Pinia store is saving token: `localStorage.getItem('authToken')`
 
 ### 4. Module not found errors
 
-**Error**: `ModuleNotFoundError: No module named 'flask'` or `No module named 'mysql'`
+**Error**: `ModuleNotFoundError: No module named 'flask'` or `mysql`
 
 **Solution**:
 ```bash
@@ -365,67 +544,138 @@ cd backend
 pip install -r requirements.txt
 ```
 
+### 5. "Unknown column" errors (e.g., 'password_hash' in 'field list')
+
+**Error**: Backend throws error when trying to login
+
+**Solution**: 
+- Clear Python cache: Delete `backend/__pycache__` folder
+- Restart backend: `python app.py`
+- This happens when old bytecode is cached after schema updates
+
+### 6. Multiple table creation errors on startup
+
+**Error**: "Table 'X' already exists"
+
+**Solution**: 
+- This is normal on first run - the schema initializes all 11 tables
+- If you see repeated errors, drop and recreate the database:
+  ```sql
+  DROP DATABASE perfume_store;
+  CREATE DATABASE perfume_store;
+  ```
+  Then restart the backend
+
+### 7. Supplier/Scent creation fails
+
+**Error**: `500 Internal Server Error` when trying to add supplier or scent
+
+**Solutions**:
+- Check backend logs for specific error message
+- Ensure all required fields are provided (e.g., "name" is required)
+- Check that Suppliers table exists: `SHOW TABLES;` in MySQL
+- Try a simpler test: `curl -X POST http://localhost:5000/api/suppliers -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d '{"name":"Test"}'`
+
 ## File Descriptions
 
 ### Backend Files
 
-- **app.py** (500+ lines)
-  - Flask application with all routes
-  - Authentication with JWT
-  - CRUD endpoints for suppliers, ingredients, scents
-  - Audit logging system
-  - Import/export functionality
+- **app.py** (700+ lines)
+  - Flask REST API with all routes
+  - Authentication routes (`/api/auth/login`, `/api/auth/me`)
+  - CRUD endpoints for suppliers and scents
+  - Audit logging for all actions
+  - Token verification with `@token_required` decorator
+  - CORS enabled for frontend integration
 
 - **sql.py** (150+ lines)
-  - Database connection handler
-  - Supports SQLite and MySQL
+  - Database connection management
   - Query execution with error handling
-  - Schema initialization
-  - Row dictionary conversion
+  - `create_connection()` - Establish MySQL connection
+  - `execute_query()` - Write operations (INSERT, UPDATE, DELETE)
+  - `execute_read_query()` - Read operations (SELECT)
+  - `init_db_schema()` - Automatically creates all 11 tables
+  - Automatic row-to-dictionary conversion
 
 - **creds.py** (20 lines)
-  - Centralized configuration
-  - Database connection details
-  - Flask settings
-  - Easy to switch between environments
+  - Centralized configuration management
+  - MySQL connection details
+  - Flask settings (debug mode, secret key, etc.)
+  - JWT configuration
+  - Easy to switch between local MySQL and AWS RDS
+
+- **db_schema.sql** (Reference file)
+  - Complete SQL schema for all 11 tables
+  - For reference only - tables are created automatically by `init_db_schema()`
+  - Useful for understanding table structure
 
 - **requirements.txt**
-  - Flask - web framework
-  - Flask-CORS - cross-origin requests
-  - PyJWT - authentication tokens
-  - mysql-connector-python - MySQL support
+  - `Flask` - Web server framework
+  - `Flask-CORS` - Cross-origin requests (frontend integration)
+  - `PyJWT` - JWT token creation and verification
+  - `mysql-connector-python` - MySQL database driver
+  - `Werkzeug` - Password hashing and utilities
 
 ### Frontend Files
 
 - **src/stores/auth.js**
-  - JWT token management
-  - Login/logout
-  - User state persistence
-
-- **src/stores/ingredients.js**
-  - Ingredients CRUD operations
-  - Real API integration
-  - Search and filter logic
+  - JWT token management and persistence
+  - User login/logout/authentication
+  - Automatic token refresh on page reload
+  - API integration for auth endpoints
 
 - **src/stores/suppliers.js**
-  - Suppliers management
-  - API integration
+  - Suppliers CRUD operations (Create, Read, Update, Delete)
+  - API calls to `/api/suppliers` endpoints
+  - State management for suppliers list
+  - Error handling
 
 - **src/stores/scents.js**
-  - Scent formulas management
+  - Scents management (formulas)
+  - API integration with `/api/scents` endpoints
   - Soft-delete (archive) functionality
+  - Create, update, search scents
 
 - **src/stores/audit.js**
   - Audit log retrieval and filtering
-  - API integration
+  - API integration with `/api/audit-logs`
+  - Search and filter audit logs by action, table, user
+
+- **src/views/SuppliersView.vue**
+  - Manage suppliers table and modal forms
+  - Search/filter functionality
+  - Role-based UI (edit/delete buttons)
+  - Calls supplier store for API operations
+
+- **src/views/ScentLibrary.vue**
+  - Manage scent formulas
+  - Create/edit/delete scents
+  - Display scent notes (top, middle, base)
+  - Calls scent store for API operations
+
+- **src/views/AuditLogs.vue**
+  - View complete audit trail
+  - Search and filter logs
+  - Display user actions with timestamps
+
+- **src/components/SupplierModal.vue**
+  - Reusable modal for adding/editing suppliers
+  - Form validation
+  - Emits submit event to parent component
+
+- **src/components/ScentModal.vue**
+  - Reusable modal for adding/editing scents
+  - Form for scent notes
+  - Emits submit event to parent component
 
 - **.env.local**
-  - Local development configuration
-  - API URL pointer
+  - Backend API URL: `VITE_API_URL=http://localhost:5000/api`
+  - Other Vue configuration variables
 
 - **vite.config.js**
   - Vite build configuration
-  - Vue plugin setup
+  - Vue 3 plugin setup
+  - Development server settings
 
 ## Deployment Notes
 

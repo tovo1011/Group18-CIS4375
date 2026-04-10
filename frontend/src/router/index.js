@@ -3,7 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import LoginPage from '../views/LoginPage.vue'
 import Dashboard from '../views/Dashboard.vue'
 import ScentLibrary from '../views/ScentLibrary.vue'
-import IngredientsView from '../views/IngredientsView.vue'
+import EssentialOilsView from '../views/EssentialOilsView.vue'
 import SuppliersView from '../views/SuppliersView.vue'
 import AuditLogs from '../views/AuditLogs.vue'
 import ImportExport from '../views/ImportExport.vue'
@@ -31,9 +31,9 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/ingredients',
-    name: 'Ingredients',
-    component: IngredientsView,
+    path: '/oils',
+    name: 'EssentialOils',
+    component: EssentialOilsView,
     meta: { requiresAuth: true }
   },
   {

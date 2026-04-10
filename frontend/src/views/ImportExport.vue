@@ -11,8 +11,9 @@
         <h3>📥 Import Scents from Excel</h3>
         <div class="instructions">
           <p><strong>Supported format:</strong> .xlsx, .xls, .csv</p>
-          <p><strong>Required columns:</strong> Name, Top Notes, Middle Notes, Base Notes, Supplier</p>
-          <p><strong>Example:</strong></p>
+          <p><strong>Required columns:</strong> Name, Top Notes, Middle Notes, Base Notes</p>
+          <p><strong>Optional columns:</strong> Essential Oils - will be automatically added to your Essential Oils library</p>
+          <p><strong>Note:</strong> If you have combined fragrance notes (like "citrus, vanilla, musk"), they will be intelligently split into top, middle, and base notes.</p>
           <table class="example-table">
             <thead>
               <tr>
@@ -21,6 +22,7 @@
                 <th>Middle Notes</th>
                 <th>Base Notes</th>
                 <th>Supplier</th>
+                <th>Essential Oils</th>
               </tr>
             </thead>
             <tbody>
@@ -30,6 +32,7 @@
                 <td>Rose, Jasmine</td>
                 <td>Sandalwood, Musk</td>
                 <td>Global Florals Inc</td>
+                <td>rose oil, sandalwood oil</td>
               </tr>
             </tbody>
           </table>
@@ -50,7 +53,7 @@
           </div>
         </div>
 
-        <div v-if="uploadStatus" :class="`status status-${uploadStatus.type}`">
+        <div v-if="uploadStatus" :class="`status status-${uploadStatus.type}`" style="white-space: pre-wrap; word-break: break-word;">
           {{ uploadStatus.message }}
         </div>
 
@@ -68,12 +71,11 @@
       <div class="section export-section">
         <h3>📤 Export Scents as CSV</h3>
         <div class="instructions">
-          <p>Download your complete scent library with all ingredients and details.</p>
+          <p>Download your complete scent library with all fragrance details.</p>
           <p>The CSV file will include:</p>
           <ul>
             <li>Scent name and formulas (top, middle, base notes)</li>
-            <li>Associated ingredients</li>
-            <li>Supplier information</li>
+            <li>Associated essential oils</li>
             <li>Creation date and creator</li>
           </ul>
         </div>
@@ -134,15 +136,17 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useScentStore } from '../stores/scents'
+import { useEssentialOilStore } from '../stores/essential-oils'
 import { useAuditStore } from '../stores/audit'
-import { parseScentsFile, validateScents } from '../utils/fileParser'
+import { parseScentsFile, validateScents, extractEssentialOils, validateOils } from '../utils/fileParser'
 import axios from 'axios'
 
 const authStore = useAuthStore()
 const scentStore = useScentStore()
+const essentialOilStore = useEssentialOilStore()
 const auditStore = useAuditStore()
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
@@ -167,6 +171,17 @@ const importHistory = ref([
     date: '2025-02-05'
   }
 ])
+
+onMounted(async () => {
+  // Fetch essential oils on component load to ensure store is populated
+  if (essentialOilStore.oils.length === 0) {
+    try {
+      await essentialOilStore.fetchOils()
+    } catch (err) {
+      console.warn('Failed to fetch essential oils on mount:', err)
+    }
+  }
+})
 
 const triggerFileInput = () => {
   fileInput.value.click()
@@ -202,8 +217,39 @@ const handleImport = async () => {
     }
 
     console.log(`Successfully parsed ${parsedScents.length} scents`)
+    // DEBUG: Log first scent to see what was parsed
+    if (parsedScents.length > 0) {
+      console.log('First scent for debugging:', JSON.stringify(parsedScents[0], null, 2))
+    }
 
-    // Send to backend API
+    // Extract and validate essential oils
+    console.log('Extracting essential oils from scents...')
+    const extractedOils = extractEssentialOils(parsedScents)
+    const oilValidation = validateOils(extractedOils)
+    if (!oilValidation.valid) {
+      console.warn('Oil validation warnings:', oilValidation.errors)
+    }
+    console.log(`Extracted ${extractedOils.length} unique oils`)
+
+    // Create essential oils in database
+    let createdOilsCount = 0
+    let oilCreationErrors = []
+    if (extractedOils.length > 0) {
+      console.log('Creating essential oils...')
+      for (const oil of extractedOils) {
+        try {
+          await essentialOilStore.addOil(oil)
+          createdOilsCount++
+          console.log(`Created oil: ${oil.name}`)
+        } catch (err) {
+          // Oil might already exist or there was an error
+          oilCreationErrors.push(`Failed to create oil "${oil.name}": ${err.message}`)
+          console.warn(`Error creating oil "${oil.name}":`, err)
+        }
+      }
+    }
+
+    // Send scents to backend API
     const response = await axios.post(
       `${API_URL}/scents/import`,
       {
@@ -223,8 +269,16 @@ const handleImport = async () => {
     const importedCount = result.imported || parsedScents.length
     const errors = result.errors || []
 
+    console.log('Import result:', { importedCount, totalRows: parsedScents.length, errors })
+
     // Refresh scents from store/API
-    await scentStore.fetchScents()
+    console.log('Fetching scents after import...')
+    try {
+      await scentStore.fetchScents()
+      console.log('Scents after fetch:', scentStore.scents.length, 'scents loaded')
+    } catch (err) {
+      console.warn('Failed to fetch scents after import:', err)
+    }
 
     // Add to import history
     importHistory.value.unshift({
@@ -234,21 +288,22 @@ const handleImport = async () => {
       date: new Date().toISOString().split('T')[0]
     })
 
-    // Log audit
-    auditStore.addAuditLog({
-      userId: authStore.user.id,
-      userName: authStore.user.email,
-      action: 'CREATE',
-      tableName: 'scents',
-      recordId: 0,
-      recordName: selectedFile.value.name,
-      details: `Imported ${importedCount} scents from ${selectedFile.value.name}. Errors: ${errors.length}`
-    })
-
     // Show success message
     let message = `✅ Successfully imported ${importedCount} scents`
+    if (createdOilsCount > 0) {
+      message += ` and added ${createdOilsCount} essential oils`
+    }
     if (errors.length > 0) {
-      message += `\n⚠️ ${errors.length} rows had issues`
+      message += `\n⚠️ ${errors.length} rows had issues:\n`
+      message += errors.slice(0, 3).map(e => `  • ${e}`).join('\n')
+      if (errors.length > 3) {
+        message += `\n  ... and ${errors.length - 3} more`
+      }
+      console.warn('Import errors:', errors)
+    }
+    if (oilCreationErrors.length > 0) {
+      message += `\n⚠️ ${oilCreationErrors.length} oils had issues`
+      console.warn('Oil creation errors:', oilCreationErrors)
     }
 
     uploadStatus.value = {
@@ -270,17 +325,6 @@ const handleImport = async () => {
     } else if (error.response?.data?.details) {
       errorMsg = error.response.data.details
     }
-
-    // Log audit failure
-    auditStore.addAuditLog({
-      userId: authStore.user.id,
-      userName: authStore.user.email,
-      action: 'CREATE',
-      tableName: 'scents',
-      recordId: 0,
-      recordName: selectedFile.value?.name || 'unknown',
-      details: `Import failed: ${errorMsg}`
-    })
 
     uploadStatus.value = {
       type: 'error',
@@ -308,16 +352,6 @@ const handleExport = () => {
   setTimeout(() => {
     exportMessage.value = null
   }, 3000)
-
-  auditStore.addAuditLog({
-    userId: authStore.user.id,
-    userName: authStore.user.email,
-    action: 'READ',
-    tableName: 'scents',
-    recordId: 0,
-    recordName: `Export ${scents.length} scents`,
-    details: `Exported ${scents.length} scents as ${exportFormat.value.toUpperCase()}`
-  })
 }
 
 const exportAsCSV = (scents) => {

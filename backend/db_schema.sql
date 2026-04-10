@@ -13,17 +13,24 @@ CREATE TABLE Users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE Scents (
-    scent_ID INT AUTO_INCREMENT PRIMARY KEY,
-    category VARCHAR(100),
-    Scent_description VARCHAR(250),
-    Scent_status VARCHAR(100)
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    top_notes VARCHAR(500),
+    middle_notes VARCHAR(500),
+    base_notes VARCHAR(500),
+    all_notes VARCHAR(1000),
+    essential_oils VARCHAR(500),
+    created_by VARCHAR(100),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    archived_at DATETIME NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE Scent_Essential_Oil (
     scent_oil_ID INT AUTO_INCREMENT PRIMARY KEY,
-    scent_ID INT,
+    id INT,
     oil_ID INT,
-    note_type VARCHAR(100)
+    note_type VARCHAR(100),
+    FOREIGN KEY (id) REFERENCES Scents(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE Essential_oil (
@@ -47,11 +54,11 @@ CREATE TABLE Suppliers (
 
 CREATE TABLE Products (
     product_ID VARCHAR(50) PRIMARY KEY,
-    scent_ID INT NOT NULL,
+    id INT NOT NULL,
     product_name VARCHAR(100) NOT NULL,
     product_type VARCHAR(100) NOT NULL,
     price INT NOT NULL,
-    FOREIGN KEY (scent_ID) REFERENCES Scents(scent_ID)
+    FOREIGN KEY (id) REFERENCES Scents(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE DashBoardMetrics (

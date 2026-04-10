@@ -106,7 +106,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useScentStore } from '../stores/scents'
 import { useAuditStore } from '../stores/audit'
@@ -122,6 +122,10 @@ const noteFilter = ref('')
 const scentModalOpen = ref(false)
 const confirmDialogOpen = ref(false)
 const selectedScent = ref(null)
+
+onMounted(async () => {
+  await scentStore.fetchScents()
+})
 
 const canEdit = computed(() => {
   return ['admin', 'manager'].includes(authStore.user?.role)
@@ -151,47 +155,28 @@ const viewScent = (scent) => {
   // Can expand to show a detail view modal later
 }
 
-const handleScentSubmit = (data) => {
-  if (selectedScent.value) {
-    scentStore.updateScent(selectedScent.value.id, data)
-    auditStore.addAuditLog({
-      userId: authStore.user.id,
-      userName: authStore.user.email,
-      action: 'UPDATE',
-      tableName: 'scents',
-      recordId: selectedScent.value.id,
-      recordName: selectedScent.value.name,
-      details: `Updated scent formula: ${selectedScent.value.name}`
-    })
-  } else {
-    const newScent = scentStore.addScent(data)
-    auditStore.addAuditLog({
-      userId: authStore.user.id,
-      userName: authStore.user.email,
-      action: 'CREATE',
-      tableName: 'scents',
-      recordId: newScent.id,
-      recordName: newScent.name,
-      details: `Created new scent formula: ${newScent.name}`
-    })
+const handleScentSubmit = async (data) => {
+  try {
+    if (selectedScent.value) {
+      await scentStore.updateScent(selectedScent.value.id, data)
+    } else {
+      await scentStore.addScent(data)
+    }
+    scentModalOpen.value = false
+    selectedScent.value = null
+  } catch (err) {
+    console.error('Error submitting scent:', err)
   }
-  scentModalOpen.value = false
-  selectedScent.value = null
 }
 
-const handleDeleteScent = () => {
-  scentStore.deleteScent(selectedScent.value.id)
-  auditStore.addAuditLog({
-    userId: authStore.user.id,
-    userName: authStore.user.email,
-    action: 'DELETE',
-    tableName: 'scents',
-    recordId: selectedScent.value.id,
-    recordName: selectedScent.value.name,
-    details: `Archived scent formula: ${selectedScent.value.name}`
-  })
-  confirmDialogOpen.value = false
-  selectedScent.value = null
+const handleDeleteScent = async () => {
+  try {
+    await scentStore.deleteScent(selectedScent.value.id)
+    confirmDialogOpen.value = false
+    selectedScent.value = null
+  } catch (err) {
+    console.error('Error deleting scent:', err)
+  }
 }
 </script>
 

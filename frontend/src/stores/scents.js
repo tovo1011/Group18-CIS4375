@@ -1,12 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
-import { hardcodedScents } from './hardcodedScents.js'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export const useScentStore = defineStore('scents', () => {
-  const scents = ref(hardcodedScents)
+  const scents = ref([])
   const searchQuery = ref('')
   const filterNoteType = ref('')
   const loading = ref(false)
@@ -57,6 +56,16 @@ export const useScentStore = defineStore('scents', () => {
     try {
       loading.value = true
       error.value = null
+      
+      // Check for duplicate scent name (case-insensitive)
+      const isDuplicate = scents.value.some(s => 
+        s.name.toLowerCase() === scent.name.toLowerCase() && !s.archivedAt
+      )
+      if (isDuplicate) {
+        error.value = `Scent "${scent.name}" already exists`
+        throw new Error(error.value)
+      }
+      
       const response = await axios.post(`${API_URL}/scents`, scent, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -65,7 +74,7 @@ export const useScentStore = defineStore('scents', () => {
       scents.value.push(response.data)
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to add scent'
+      error.value = err.response?.data?.message || err.message || 'Failed to add scent'
       throw err
     } finally {
       loading.value = false
