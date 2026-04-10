@@ -85,7 +85,7 @@ def create_token(user):
     }
     return jwt.encode(payload, Creds.SECRET_KEY, algorithm='HS256')
 
-def log_audit(user_id, user_name, action, table_name, record_id, record_name, details=''):
+def log_audit(user_id, action, table_name, record_id):
     """Log an audit entry for data modifications"""
     query = """
     INSERT INTO AuditLog (UserID, Timestamp, AuditAction, TableName, RecordID)
@@ -212,7 +212,7 @@ def create_supplier(current_user):
     suppliers = execute_read_query(conn, select_query, (data['name'],))
     supplier = suppliers[0]
     
-    log_audit(current_user['UserID'], current_user['Email'], 'CREATE', 'Suppliers', supplier['supplier_ID'], supplier['SupplierName'], 'Added new supplier')
+    log_audit(current_user['UserID'], 'CREATE', 'Suppliers', supplier['supplier_ID'])
     
     return jsonify({
         'id': supplier['supplier_ID'],
@@ -252,7 +252,7 @@ def update_supplier(current_user, supplier_id):
     )
     execute_query(conn, update_query, values)
     
-    log_audit(current_user['UserID'], current_user['Email'], 'UPDATE', 'Suppliers', supplier_id, old_name, f'Updated supplier')
+    log_audit(current_user['UserID'], 'UPDATE', 'Suppliers', supplier_id)
     
     # Return updated supplier
     suppliers = execute_read_query(conn, "SELECT * FROM Suppliers WHERE supplier_ID = %s", (supplier_id,))
@@ -282,7 +282,7 @@ def delete_supplier(current_user, supplier_id):
     delete_query = "DELETE FROM suppliers WHERE id = %s"
     execute_query(conn, delete_query, (supplier_id,))
     
-    log_audit(current_user['UserID'], current_user['Email'], 'DELETE', 'Suppliers', supplier_id, supplier_name, 'Deleted supplier')
+    log_audit(current_user['UserID'], 'DELETE', 'Suppliers', supplier_id)
     
     return jsonify({'message': 'Supplier deleted'}), 200
 
@@ -368,7 +368,7 @@ def create_scent(current_user):
     scents = execute_read_query(db_conn, select_query, (data['name'],))
     scent = scents[0]
     
-    log_audit(current_user['UserID'], current_user['Email'], 'CREATE', 'Scents', scent['id'], scent['name'], 'Created new scent formula')
+    log_audit(current_user['UserID'], 'CREATE', 'Scents', scent['id'])
     
     return jsonify({
         'id': scent['id'],
@@ -413,7 +413,7 @@ def update_scent(current_user, scent_id):
     )
     execute_query(conn, update_query, values)
     
-    log_audit(current_user['UserID'], current_user['Email'], 'UPDATE', 'Scents', scent_id, old_name, 'Updated scent formula')
+    log_audit(current_user['UserID'], 'UPDATE', 'Scents', scent_id)
     
     # Return updated scent
     scents = execute_read_query(conn, "SELECT * FROM Scents WHERE id = %s", (scent_id,))
@@ -446,7 +446,7 @@ def delete_scent(current_user, scent_id):
     update_query = "UPDATE Scents SET archived_at = CURRENT_TIMESTAMP WHERE id = %s"
     execute_query(conn, update_query, (scent_id,))
     
-    log_audit(current_user['UserID'], current_user['Email'], 'DELETE', 'Scents', scent_id, scent['name'], 'Archived scent')
+    log_audit(current_user['UserID'], 'DELETE', 'Scents', scent_id)
     
     return jsonify({'message': 'Scent archived'}), 200
 
@@ -508,12 +508,9 @@ def import_scents(current_user):
         # Log audit
         log_audit(
             current_user['UserID'],
-            current_user['Email'],
             'CREATE',
             'Scents',
-            0,
-            filename,
-            f"Imported {imported_count} scents from {filename}. Errors: {len(errors)}"
+            0
         )
         
         return jsonify({
@@ -526,12 +523,9 @@ def import_scents(current_user):
     except Exception as e:
         log_audit(
             current_user['UserID'],
-            current_user['Email'],
             'CREATE',
             'Scents',
-            0,
-            'import_error',
-            f"Import failed: {str(e)}"
+            0
         )
         return jsonify({'error': f'Import failed: {str(e)}'}), 500
 
@@ -618,7 +612,7 @@ def create_essential_oil(current_user):
     oils = execute_read_query(db_conn, select_query, (data['name'],))
     oil = oils[0]
     
-    log_audit(current_user['UserID'], current_user['Email'], 'CREATE', 'oils', oil['oil_ID'], oil['oil_name'], 'Added new essential oil')
+    log_audit(current_user['UserID'], 'CREATE', 'oils', oil['oil_ID'])
     
     return jsonify({
         'id': oil['oil_ID'],
@@ -658,7 +652,7 @@ def update_essential_oil(current_user, oil_id):
     )
     execute_query(conn, update_query, values)
     
-    log_audit(current_user['UserID'], current_user['Email'], 'UPDATE', 'oils', oil_id, old_name, 'Updated essential oil')
+    log_audit(current_user['UserID'], 'UPDATE', 'oils', oil_id)
     
     # Return updated oil
     oils = execute_read_query(conn, "SELECT * FROM Essential_oil WHERE oil_ID = %s", (oil_id,))
@@ -688,7 +682,7 @@ def delete_essential_oil(current_user, oil_id):
     delete_query = "DELETE FROM Essential_oil WHERE oil_ID = %s"
     execute_query(conn, delete_query, (oil_id,))
     
-    log_audit(current_user['UserID'], current_user['Email'], 'DELETE', 'oils', oil_id, oil_name, 'Deleted essential oil')
+    log_audit(current_user['UserID'], 'DELETE', 'oils', oil_id)
     
     return jsonify({'message': 'Essential oil deleted'}), 200
 
@@ -865,7 +859,7 @@ def import_data(current_user):
                 )
                 execute_query(conn, insert_query, values)
         
-        log_audit(current_user['UserID'], current_user['Email'], 'CREATE', 'import', 0, 'Data Import', 'Imported suppliers, ingredients, and scents')
+        log_audit(current_user['UserID'], 'CREATE', 'import', 0)
         
         return jsonify({'message': 'Data imported successfully'}), 200
     except Exception as e:

@@ -2,7 +2,6 @@
 Database Utilities
 Handles database connections and query execution
 """
-from mysql.connector import Error as MySQLError
 from creds import Creds
 
 # Initialize creds
