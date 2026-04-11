@@ -16,3 +16,7 @@ class Creds:
     DEBUG = True
     HOST = "0.0.0.0"
     PORT = 5000
+    
+    # Owner Credentials
+    OWNER_EMAIL = "t4owner@email.com"
+    OWNER_PASSWORD = "p4ssword"

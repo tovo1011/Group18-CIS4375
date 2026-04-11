@@ -125,6 +125,44 @@ export const useScentStore = defineStore('scents', () => {
     }
   }
 
+  const bulkDeleteScents = async (ids) => {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await axios.post(`${API_URL}/scents/bulk-delete`, { ids }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      })
+      
+      // Only remove from local state if backend confirms deletion was successful
+      if (response.data.deletedCount > 0) {
+        scents.value = scents.value.filter(s => !ids.includes(s.id))
+      }
+      
+      // If not all deletions succeeded, log a warning
+      if (response.data.deletedCount < response.data.requestedCount) {
+        error.value = `Only ${response.data.deletedCount} of ${response.data.requestedCount} scents were deleted`
+        console.warn('Bulk delete partial failure:', response.data)
+        // Refetch to ensure UI is in sync with actual database state
+        await fetchScents()
+      }
+      
+      return response.data
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Failed to bulk delete scents'
+      // Refetch to ensure UI is in sync if there was an error
+      try {
+        await fetchScents()
+      } catch (fetchErr) {
+        console.error('Failed to refetch scents after delete error:', fetchErr)
+      }
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   const setSearchQuery = (query) => {
     searchQuery.value = query
   }
@@ -145,6 +183,7 @@ export const useScentStore = defineStore('scents', () => {
     addScent,
     updateScent,
     deleteScent,
+    bulkDeleteScents,
     setSearchQuery,
     setFilterNoteType
   }

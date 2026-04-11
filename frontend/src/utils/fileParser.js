@@ -75,44 +75,12 @@ const parseExcel = async (file) => {
 
 /**
  * Intelligently parse combined fragrance notes into top/middle/base
- * Splits allNotes string into thirds
- * Example: 'light apple, rose, carnation, jasmine, suede, musk, wood' →
- *   top: 'light apple, rose'  | middle: 'carnation, jasmine' | base: 'suede, musk, wood'
- * @param {string} allNotes - Combined notes string
- * @returns {Object} {topNotes, middleNotes, baseNotes}
+ * DISABLED - now just storing everything in all_notes
+ * @deprecated
  */
 const intelligentlyParseNotes = (allNotes) => {
-  if (!allNotes || !allNotes.trim()) {
-    return { topNotes: '', middleNotes: '', baseNotes: '' }
-  }
-
-  // Remove parentheses and excess whitespace
-  const cleaned = allNotes.replace(/[()]/g, '').trim()
-  
-  // Split by comma
-  const notes = cleaned.split(',')
-    .map(note => note.trim())
-    .filter(note => note.length > 0)
-
-  if (notes.length === 0) {
-    return { topNotes: '', middleNotes: '', baseNotes: '' }
-  }
-
-  if (notes.length === 1) {
-    return { topNotes: notes[0], middleNotes: '', baseNotes: '' }
-  }
-
-  if (notes.length === 2) {
-    return { topNotes: notes[0], middleNotes: '', baseNotes: notes[1] }
-  }
-
-  // Split into thirds for 3+ notes
-  const third = Math.ceil(notes.length / 3)
-  const topNotes = notes.slice(0, third).join(', ')
-  const middleNotes = notes.slice(third, third * 2).join(', ')
-  const baseNotes = notes.slice(third * 2).join(', ')
-
-  return { topNotes, middleNotes, baseNotes }
+  // Just return everything in all_notes, empty categorized fields
+  return { topNotes: '', middleNotes: '', baseNotes: '' }
 }
 
 /**
@@ -137,14 +105,11 @@ const mapToScentObjects = (rawData) => {
     .map((row, originalIndex) => {
       // Handle different column name variations
       const name = getColumnValue(row, ['Name', 'Scent Name', 'name', 'scentName'])
-      let topNotes = getColumnValue(row, ['Top Notes', 'topNotes', 'topnotes', 'top'])
-      let middleNotes = getColumnValue(row, ['Middle Notes', 'middleNotes', 'middlenotes', 'middle'])
-      let baseNotes = getColumnValue(row, ['Base Notes', 'baseNotes', 'basenotes', 'base'])
+      const allNotes = getColumnValue(row, ['Fragrance Notes', 'All Notes', 'allNotes', 'notes', 'fragrance', 'Top Notes', 'topNotes'])
       const essentialOils = getColumnValue(row, ['Essential Oils', 'essentialOils', 'essentialoils', 'oils', 'ingredients'])
-      const allNotes = getColumnValue(row, ['Fragrance Notes', 'All Notes', 'allNotes', 'notes', 'fragrance'])
 
       // Skip completely empty rows (all fields empty)
-      const hasAnyData = name || topNotes || middleNotes || baseNotes || essentialOils || allNotes
+      const hasAnyData = name || allNotes || essentialOils
       if (!hasAnyData) {
         return null // Mark for filtering
       }
@@ -154,28 +119,11 @@ const mapToScentObjects = (rawData) => {
         return null // Mark for filtering instead of throwing error
       }
 
-      // If top/middle/base are all empty but allNotes exists, intelligently parse it
-      if (!topNotes && !middleNotes && !baseNotes && allNotes) {
-        const parsed = intelligentlyParseNotes(allNotes)
-        topNotes = parsed.topNotes
-        middleNotes = parsed.middleNotes
-        baseNotes = parsed.baseNotes
-        
-        // DEBUG: Log parsing for first scent
-        if (originalIndex === 1) { // Skip header row at index 0
-          console.log(`Parsed scent '${name}':`)
-          console.log('  allNotes:', allNotes)
-          console.log('  topNotes:', topNotes)
-          console.log('  middleNotes:', middleNotes)
-          console.log('  baseNotes:', baseNotes)
-        }
-      }
-
       return {
         name: name.trim(),
-        topNotes: topNotes ? topNotes.trim() : '',
-        middleNotes: middleNotes ? middleNotes.trim() : '',
-        baseNotes: baseNotes ? baseNotes.trim() : '',
+        topNotes: '',  // Keep empty, use all_notes instead
+        middleNotes: '',  // Keep empty, use all_notes instead
+        baseNotes: '',  // Keep empty, use all_notes instead
         allNotes: allNotes ? allNotes.trim() : '',
         essentialOils: essentialOils ? essentialOils.trim() : '',
         createdBy: '', // Will be set by backend

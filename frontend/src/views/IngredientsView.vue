@@ -111,14 +111,12 @@ import { ref, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useIngredientStore } from '../stores/ingredients'
 import { useSupplierStore } from '../stores/suppliers'
-import { useAuditStore } from '../stores/audit'
 import IngredientModal from '../components/IngredientModal.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const authStore = useAuthStore()
 const ingredientStore = useIngredientStore()
 const supplierStore = useSupplierStore()
-const auditStore = useAuditStore()
 
 const searchQuery = ref('')
 const supplierFilter = ref('')
@@ -154,26 +152,8 @@ const openDeleteConfirm = (ingredient) => {
 const handleIngredientSubmit = (data) => {
   if (selectedIngredient.value) {
     ingredientStore.updateIngredient(selectedIngredient.value.id, data)
-    auditStore.addAuditLog({
-      userId: authStore.user.id,
-      userName: authStore.user.email,
-      action: 'UPDATE',
-      tableName: 'ingredients',
-      recordId: selectedIngredient.value.id,
-      recordName: selectedIngredient.value.name,
-      details: `Updated ingredient: ${selectedIngredient.value.name}`
-    })
   } else {
-    const newIngredient = ingredientStore.addIngredient(data)
-    auditStore.addAuditLog({
-      userId: authStore.user.id,
-      userName: authStore.user.email,
-      action: 'CREATE',
-      tableName: 'ingredients',
-      recordId: newIngredient.id,
-      recordName: newIngredient.name,
-      details: `Added ingredient: ${newIngredient.name}`
-    })
+    ingredientStore.addIngredient(data)
   }
   ingredientModalOpen.value = false
   selectedIngredient.value = null
@@ -181,15 +161,6 @@ const handleIngredientSubmit = (data) => {
 
 const handleDeleteIngredient = () => {
   ingredientStore.deleteIngredient(selectedIngredient.value.id)
-  auditStore.addAuditLog({
-    userId: authStore.user.id,
-    userName: authStore.user.email,
-    action: 'DELETE',
-    tableName: 'ingredients',
-    recordId: selectedIngredient.value.id,
-    recordName: selectedIngredient.value.name,
-    details: `Deleted ingredient: ${selectedIngredient.value.name}`
-  })
   confirmDialogOpen.value = false
   selectedIngredient.value = null
 }

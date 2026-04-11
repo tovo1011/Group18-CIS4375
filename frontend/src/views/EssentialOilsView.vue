@@ -17,16 +17,23 @@
       </div>
 
       <div class="filters">
-        <select v-model="supplierFilter" @change="oilStore.setFilterSupplier(supplierFilter)">
-          <option value="">All Suppliers</option>
-          <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
-            {{ supplier.name }}
-          </option>
+        <select v-model="sortBy" class="sort-select">
+          <option value="name-asc">Sort: A-Z</option>
+          <option value="name-desc">Sort: Z-A</option>
+          <option value="date-desc">Sort: Date Added</option>
         </select>
       </div>
 
       <button v-if="canEdit" class="btn btn-primary" @click="openCreateModal">
         + Add Oil
+      </button>
+
+      <button
+        v-if="selectedIds.size > 0 && canDelete"
+        class="btn btn-danger"
+        @click="openBulkDeleteConfirm"
+      >
+        🗑️ Delete Selected ({{ selectedIds.size }})
       </button>
     </div>
 
@@ -34,6 +41,14 @@
       <table class="oils-table">
         <thead>
           <tr>
+            <th v-if="canDelete" class="checkbox-cell">
+              <input
+                type="checkbox"
+                :checked="allSelected"
+                :indeterminate="someSelected"
+                @change="toggleSelectAll"
+              />
+            </th>
             <th>Oil Name</th>
             <th>Supplier</th>
             <th>Unit Cost</th>
@@ -43,7 +58,14 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="oil in oilStore.filteredOils" :key="oil.id" class="oil-row">
+          <tr v-for="oil in sortedOils" :key="oil.id" class="oil-row">
+            <td v-if="canDelete" class="checkbox-cell">
+              <input
+                type="checkbox"
+                :checked="selectedIds.has(oil.id)"
+                @change="toggleSelect(oil.id)"
+              />
+            </td>
             <td class="oil-name">{{ oil.name }}</td>
             <td>{{ oil.supplierName }}</td>
             <td class="cost">${{ oil.unitCost.toFixed(2) }}</td>
@@ -75,7 +97,7 @@
         </tbody>
       </table>
 
-      <div v-if="oilStore.filteredOils.length === 0" class="empty-state">
+      <div v-if="sortedOils.length === 0" class="empty-state">
         <p>No essential oils found. Create your first oil!</p>
       </div>
     </div>
@@ -96,6 +118,17 @@
       @close="confirmDialogOpen = false"
       @confirm="handleDeleteOil"
     />
+
+    <ConfirmDialog
+      :is-open="bulkDeleteConfirmOpen"
+      :title="`Delete ${selectedIds.size} oil(s)?`"
+      message="These oils will be permanently deleted from the inventory."
+      confirm-text="Delete All"
+      @close="bulkDeleteConfirmOpen = false"
+      @confirm="handleBulkDeleteOils"
+    />
+
+    <Toast :message="toastMessage" :type="toastType" :visible="toastVisible" @close="toastVisible = false" />
   </div>
 </template>
 
@@ -106,18 +139,48 @@ import { useEssentialOilStore } from '../stores/essential-oils'
 import { useSupplierStore } from '../stores/suppliers'
 import EssentialOilModal from '../components/EssentialOilModal.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import Toast from '../components/Toast.vue'
 
 const authStore = useAuthStore()
 const oilStore = useEssentialOilStore()
 const supplierStore = useSupplierStore()
 
 const searchQuery = ref('')
-const supplierFilter = ref('')
+const sortBy = ref('name-asc')
 const oilModalOpen = ref(false)
 const confirmDialogOpen = ref(false)
+const bulkDeleteConfirmOpen = ref(false)
 const selectedOil = ref(null)
+const selectedIds = ref(new Set())
+const toastVisible = ref(false)
+const toastMessage = ref('')
+const toastType = ref('success')
 
 const suppliers = computed(() => supplierStore.suppliers)
+
+const sortedOils = computed(() => {
+  const filtered = oilStore.filteredOils
+  const sorted = [...filtered]
+  
+  if (sortBy.value === 'name-asc') {
+    sorted.sort((a, b) => a.name.localeCompare(b.name))
+  } else if (sortBy.value === 'name-desc') {
+    sorted.sort((a, b) => b.name.localeCompare(a.name))
+  } else if (sortBy.value === 'date-desc') {
+    sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  }
+  
+  return sorted
+})
+
+const allSelected = computed(() => {
+  return sortedOils.value.length > 0 && 
+         sortedOils.value.every(o => selectedIds.value.has(o.id))
+})
+
+const someSelected = computed(() => {
+  return selectedIds.value.size > 0 && !allSelected.value
+})
 
 const canEdit = computed(() => {
   return ['admin', 'manager'].includes(authStore.user?.role)
@@ -151,23 +214,74 @@ const handleOilSubmit = async (data) => {
   try {
     if (selectedOil.value) {
       await oilStore.updateOil(selectedOil.value.id, data)
+      toastMessage.value = `✏️ Oil "${data.name}" updated successfully`
     } else {
       await oilStore.addOil(data)
+      toastMessage.value = `✅ Oil "${data.name}" added successfully`
     }
+    toastType.value = 'success'
+    toastVisible.value = true
     oilModalOpen.value = false
     selectedOil.value = null
   } catch (err) {
     console.error('Error submitting oil:', err)
+    toastMessage.value = 'Error saving oil'
+    toastType.value = 'error'
+    toastVisible.value = true
   }
 }
 
 const handleDeleteOil = async () => {
   try {
+    const oilName = selectedOil.value.name
     await oilStore.deleteOil(selectedOil.value.id)
+    toastMessage.value = `🗑️ Oil "${oilName}" deleted successfully`
+    toastType.value = 'success'
+    toastVisible.value = true
     confirmDialogOpen.value = false
     selectedOil.value = null
   } catch (err) {
     console.error('Error deleting oil:', err)
+    toastMessage.value = 'Error deleting oil'
+    toastType.value = 'error'
+    toastVisible.value = true
+  }
+}
+
+const toggleSelect = (id) => {
+  if (selectedIds.value.has(id)) {
+    selectedIds.value.delete(id)
+  } else {
+    selectedIds.value.add(id)
+  }
+}
+
+const toggleSelectAll = () => {
+  if (allSelected.value) {
+    selectedIds.value.clear()
+  } else {
+    sortedOils.value.forEach(o => selectedIds.value.add(o.id))
+  }
+}
+
+const openBulkDeleteConfirm = () => {
+  bulkDeleteConfirmOpen.value = true
+}
+
+const handleBulkDeleteOils = async () => {
+  try {
+    const count = selectedIds.value.size
+    await oilStore.bulkDeleteOils(Array.from(selectedIds.value))
+    toastMessage.value = `🗑️ ${count} oil(s) deleted successfully`
+    toastType.value = 'success'
+    toastVisible.value = true
+    selectedIds.value.clear()
+    bulkDeleteConfirmOpen.value = false
+  } catch (err) {
+    console.error('Bulk delete error:', err)
+    toastMessage.value = 'Error deleting oils'
+    toastType.value = 'error'
+    toastVisible.value = true
   }
 }
 </script>
@@ -235,12 +349,23 @@ const handleDeleteOil = async () => {
   border-radius: 4px;
   font-size: 14px;
   cursor: pointer;
+  background: white;
 }
 
-.filters select:focus {
+.filters select:focus,
+.sort-select:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.sort-select {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  background: white;
 }
 
 .table-container {
@@ -266,6 +391,16 @@ const handleDeleteOil = async () => {
   text-align: left;
   font-weight: 600;
   color: #333;
+}
+
+.checkbox-cell {
+  width: 40px;
+  padding: 12px 8px !important;
+  text-align: center;
+}
+
+.checkbox-cell input[type="checkbox"] {
+  cursor: pointer;
 }
 
 .oils-table td {
@@ -365,6 +500,15 @@ const handleDeleteOil = async () => {
 
 .btn-primary:hover {
   background-color: #5568d3;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
 }
 
 .btn-secondary {

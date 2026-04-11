@@ -20,9 +20,10 @@
         <label for="tableFilter">Table:</label>
         <select id="tableFilter" v-model="tableFilter" @change="auditStore.setFilterTable(tableFilter)">
           <option value="">All Tables</option>
-          <option value="scents">Scents</option>
-          <option value="oils">Essential Oils</option>
-          <option value="suppliers">Suppliers</option>
+          <option value="Scents">Scents</option>
+          <option value="Essential_oil">Essential Oils</option>
+          <option value="Suppliers">Suppliers</option>
+          <option value="import">Imports</option>
         </select>
       </div>
 
@@ -46,22 +47,18 @@
             <th>User</th>
             <th>Action</th>
             <th>Entity</th>
-            <th>Record</th>
-            <th>Details</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="log in auditStore.filteredAuditLogs" :key="log.id" :class="`action-${log.action.toLowerCase()}`">
-            <td class="timestamp">{{ log.timestamp }}</td>
+            <td class="timestamp">{{ new Date(log.timestamp).toLocaleString() }}</td>
             <td class="user">{{ log.userName }}</td>
             <td class="action">
               <span :class="`badge badge-${log.action.toLowerCase()}`">
                 {{ log.action }}
               </span>
             </td>
-            <td class="table-name">{{ log.tableName }}</td>
-            <td class="record-name">{{ log.recordName }}</td>
-            <td class="details">{{ log.details }}</td>
+            <td class="table-name">{{ log.tableName }} (ID: {{ log.recordId }})</td>
           </tr>
         </tbody>
       </table>
@@ -74,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAuditStore } from '../stores/audit'
 
 const auditStore = useAuditStore()
@@ -82,6 +79,10 @@ const auditStore = useAuditStore()
 const actionFilter = ref('')
 const tableFilter = ref('')
 const userFilter = ref('')
+
+onMounted(() => {
+  auditStore.fetchAuditLogs()
+})
 </script>
 
 <style scoped>

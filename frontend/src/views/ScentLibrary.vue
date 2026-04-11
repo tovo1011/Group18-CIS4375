@@ -17,17 +17,23 @@
       </div>
 
       <div class="filters">
-        <select v-model="noteFilter" @change="scentStore.setFilterNoteType(noteFilter)">
-          <option value="">All Notes</option>
-          <option value="Rose">Rose</option>
-          <option value="Bergamot">Bergamot</option>
-          <option value="Jasmine">Jasmine</option>
-          <option value="Sandalwood">Sandalwood</option>
+        <select v-model="sortBy" class="sort-select">
+          <option value="name-asc">Sort: A-Z</option>
+          <option value="name-desc">Sort: Z-A</option>
+          <option value="date-desc">Sort: Date Added</option>
         </select>
       </div>
 
       <button v-if="canEdit" class="btn btn-primary" @click="openCreateModal">
         + New Scent
+      </button>
+
+      <button
+        v-if="selectedIds.size > 0 && canDelete"
+        class="btn btn-danger"
+        @click="openBulkDeleteConfirm"
+      >
+        🗑️ Delete Selected ({{ selectedIds.size }})
       </button>
     </div>
 
@@ -35,21 +41,32 @@
       <table class="scents-table">
         <thead>
           <tr>
+            <th v-if="canDelete" class="checkbox-cell">
+              <input
+                type="checkbox"
+                :checked="allSelected"
+                :indeterminate="someSelected"
+                @change="toggleSelectAll"
+              />
+            </th>
             <th>Name</th>
-            <th>Top Notes</th>
-            <th>Middle Notes</th>
-            <th>Base Notes</th>
+            <th>Fragrance Notes</th>
             <th>Created By</th>
             <th>Date</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="scent in scentStore.filteredScents" :key="scent.id" class="scent-row">
+          <tr v-for="scent in sortedScents" :key="scent.id" class="scent-row">
+            <td v-if="canDelete" class="checkbox-cell">
+              <input
+                type="checkbox"
+                :checked="selectedIds.has(scent.id)"
+                @change="toggleSelect(scent.id)"
+              />
+            </td>
             <td class="scent-name">{{ scent.name }}</td>
-            <td class="notes">{{ scent.topNotes }}</td>
-            <td class="notes">{{ scent.middleNotes }}</td>
-            <td class="notes">{{ scent.baseNotes }}</td>
+            <td class="notes">{{ scent.allNotes }}</td>
             <td class="created-by">{{ scent.createdBy }}</td>
             <td class="date">{{ scent.createdAt }}</td>
             <td class="actions">
@@ -81,7 +98,7 @@
         </tbody>
       </table>
 
-      <div v-if="scentStore.filteredScents.length === 0" class="empty-state">
+      <div v-if="sortedScents.length === 0" class="empty-state">
         <p>No scents found. Create your first scent formula!</p>
       </div>
     </div>
@@ -102,6 +119,17 @@
       @close="confirmDialogOpen = false"
       @confirm="handleDeleteScent"
     />
+
+    <ConfirmDialog
+      :is-open="bulkDeleteConfirmOpen"
+      :title="`Archive ${selectedIds.size} scent(s)?`"
+      message="These scents will be archived and cannot be easily recovered."
+      confirm-text="Archive All"
+      @close="bulkDeleteConfirmOpen = false"
+      @confirm="handleBulkDeleteScents"
+    />
+
+    <Toast :message="toastMessage" :type="toastType" :visible="toastVisible" @close="toastVisible = false" />
   </div>
 </template>
 
@@ -109,22 +137,50 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useScentStore } from '../stores/scents'
-import { useAuditStore } from '../stores/audit'
 import ScentModal from '../components/ScentModal.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import Toast from '../components/Toast.vue'
 
 const authStore = useAuthStore()
 const scentStore = useScentStore()
-const auditStore = useAuditStore()
 
 const searchQuery = ref('')
-const noteFilter = ref('')
+const sortBy = ref('name-asc')
 const scentModalOpen = ref(false)
 const confirmDialogOpen = ref(false)
+const bulkDeleteConfirmOpen = ref(false)
 const selectedScent = ref(null)
+const selectedIds = ref(new Set())
+const toastVisible = ref(false)
+const toastMessage = ref('')
+const toastType = ref('success')
 
 onMounted(async () => {
   await scentStore.fetchScents()
+})
+
+const sortedScents = computed(() => {
+  const filtered = scentStore.filteredScents
+  const sorted = [...filtered]
+  
+  if (sortBy.value === 'name-asc') {
+    sorted.sort((a, b) => a.name.localeCompare(b.name))
+  } else if (sortBy.value === 'name-desc') {
+    sorted.sort((a, b) => b.name.localeCompare(a.name))
+  } else if (sortBy.value === 'date-desc') {
+    sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  }
+  
+  return sorted
+})
+
+const allSelected = computed(() => {
+  return sortedScents.value.length > 0 && 
+         sortedScents.value.every(s => selectedIds.value.has(s.id))
+})
+
+const someSelected = computed(() => {
+  return selectedIds.value.size > 0 && !allSelected.value
 })
 
 const canEdit = computed(() => {
@@ -159,23 +215,74 @@ const handleScentSubmit = async (data) => {
   try {
     if (selectedScent.value) {
       await scentStore.updateScent(selectedScent.value.id, data)
+      toastMessage.value = `✏️ Scent "${data.name}" updated successfully`
     } else {
       await scentStore.addScent(data)
+      toastMessage.value = `✅ Scent "${data.name}" added successfully`
     }
+    toastType.value = 'success'
+    toastVisible.value = true
     scentModalOpen.value = false
     selectedScent.value = null
   } catch (err) {
     console.error('Error submitting scent:', err)
+    toastMessage.value = 'Error saving scent'
+    toastType.value = 'error'
+    toastVisible.value = true
   }
 }
 
 const handleDeleteScent = async () => {
   try {
+    const scentName = selectedScent.value.name
     await scentStore.deleteScent(selectedScent.value.id)
+    toastMessage.value = `🗑️ Scent "${scentName}" archived successfully`
+    toastType.value = 'success'
+    toastVisible.value = true
     confirmDialogOpen.value = false
     selectedScent.value = null
   } catch (err) {
     console.error('Error deleting scent:', err)
+    toastMessage.value = 'Error archiving scent'
+    toastType.value = 'error'
+    toastVisible.value = true
+  }
+}
+
+const toggleSelect = (id) => {
+  if (selectedIds.value.has(id)) {
+    selectedIds.value.delete(id)
+  } else {
+    selectedIds.value.add(id)
+  }
+}
+
+const toggleSelectAll = () => {
+  if (allSelected.value) {
+    selectedIds.value.clear()
+  } else {
+    sortedScents.value.forEach(s => selectedIds.value.add(s.id))
+  }
+}
+
+const openBulkDeleteConfirm = () => {
+  bulkDeleteConfirmOpen.value = true
+}
+
+const handleBulkDeleteScents = async () => {
+  try {
+    const count = selectedIds.value.size
+    await scentStore.bulkDeleteScents(Array.from(selectedIds.value))
+    toastMessage.value = `🗑️ ${count} scent(s) archived successfully`
+    toastType.value = 'success'
+    toastVisible.value = true
+    selectedIds.value.clear()
+    bulkDeleteConfirmOpen.value = false
+  } catch (err) {
+    console.error('Bulk delete error:', err)
+    toastMessage.value = 'Error archiving scents'
+    toastType.value = 'error'
+    toastVisible.value = true
   }
 }
 </script>
@@ -237,7 +344,13 @@ const handleDeleteScent = async () => {
   pointer-events: none;
 }
 
-.filters select {
+.filters {
+  display: flex;
+  gap: 8px;
+}
+
+.filters select,
+.sort-select {
   padding: 10px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -246,9 +359,11 @@ const handleDeleteScent = async () => {
   cursor: pointer;
 }
 
-.filters select:focus {
+.filters select:focus,
+.sort-select:focus {
   outline: none;
   border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .btn {
@@ -268,6 +383,15 @@ const handleDeleteScent = async () => {
 
 .btn-primary:hover {
   background: #5568d3;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
 }
 
 .table-container {
@@ -293,6 +417,16 @@ const handleDeleteScent = async () => {
   text-align: left;
   font-weight: 600;
   color: #333;
+}
+
+.checkbox-cell {
+  width: 40px;
+  padding: 12px 8px !important;
+  text-align: center;
+}
+
+.checkbox-cell input[type="checkbox"] {
+  cursor: pointer;
 }
 
 .scents-table tbody tr {

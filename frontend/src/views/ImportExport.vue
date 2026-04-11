@@ -5,6 +5,8 @@
       <p>Upload scent data from Excel or download your library as CSV</p>
     </div>
 
+
+
     <div class="sections">
       <!-- Import Section -->
       <div class="section import-section">
@@ -140,14 +142,12 @@ import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useScentStore } from '../stores/scents'
 import { useEssentialOilStore } from '../stores/essential-oils'
-import { useAuditStore } from '../stores/audit'
 import { parseScentsFile, validateScents, extractEssentialOils, validateOils } from '../utils/fileParser'
 import axios from 'axios'
 
 const authStore = useAuthStore()
 const scentStore = useScentStore()
 const essentialOilStore = useEssentialOilStore()
-const auditStore = useAuditStore()
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -207,53 +207,50 @@ const handleImport = async () => {
   try {
     // Parse file
     console.log(`Parsing file: ${selectedFile.value.name}`)
-    const parsedScents = await parseScentsFile(selectedFile.value)
+    const parsed = await parseScentsFile(selectedFile.value)
 
     // Validate parsed data
-    const validation = validateScents(parsedScents)
+    const validation = validateScents(parsed)
     if (!validation.valid) {
       const errorMsg = validation.errors.join('\n')
       throw new Error(`Validation failed:\n${errorMsg}`)
     }
 
-    console.log(`Successfully parsed ${parsedScents.length} scents`)
-    // DEBUG: Log first scent to see what was parsed
-    if (parsedScents.length > 0) {
-      console.log('First scent for debugging:', JSON.stringify(parsedScents[0], null, 2))
-    }
+    console.log(`Successfully parsed ${parsed.length} scents`)
+    console.log('All parsed scents:', JSON.stringify(parsed, null, 2))
 
-    // Extract and validate essential oils
+    // Extract essential oils
     console.log('Extracting essential oils from scents...')
-    const extractedOils = extractEssentialOils(parsedScents)
-    const oilValidation = validateOils(extractedOils)
+    const oils = extractEssentialOils(parsed)
+    const oilValidation = validateOils(oils)
     if (!oilValidation.valid) {
       console.warn('Oil validation warnings:', oilValidation.errors)
     }
-    console.log(`Extracted ${extractedOils.length} unique oils`)
+    console.log(`Extracted ${oils.length} unique oils:`, oils)
 
-    // Create essential oils in database
+    // Create essential oils first
     let createdOilsCount = 0
     let oilCreationErrors = []
-    if (extractedOils.length > 0) {
+    if (oils.length > 0) {
       console.log('Creating essential oils...')
-      for (const oil of extractedOils) {
+      for (const oil of oils) {
         try {
           await essentialOilStore.addOil(oil)
           createdOilsCount++
           console.log(`Created oil: ${oil.name}`)
         } catch (err) {
-          // Oil might already exist or there was an error
           oilCreationErrors.push(`Failed to create oil "${oil.name}": ${err.message}`)
           console.warn(`Error creating oil "${oil.name}":`, err)
         }
       }
     }
 
-    // Send scents to backend API
+    // Send parsed scents directly to backend (bypass preview modal)
+    console.log('Sending scents to backend import endpoint...')
     const response = await axios.post(
       `${API_URL}/scents/import`,
       {
-        scents: parsedScents,
+        scents: parsed,
         filename: selectedFile.value.name,
         filesize: selectedFile.value.size
       },
@@ -266,10 +263,10 @@ const handleImport = async () => {
 
     // Handle API response
     const result = response.data
-    const importedCount = result.imported || parsedScents.length
+    const importedCount = result.imported !== undefined ? result.imported : 0
     const errors = result.errors || []
 
-    console.log('Import result:', { importedCount, totalRows: parsedScents.length, errors })
+    console.log('Import result:', { importedCount, totalRows: parsed.length, errors })
 
     // Refresh scents from store/API
     console.log('Fetching scents after import...')
@@ -311,15 +308,14 @@ const handleImport = async () => {
       message
     }
 
-    // Clear file input
+    // Clear state
     selectedFile.value = null
     if (fileInput.value) fileInput.value.value = ''
+
   } catch (error) {
     console.error('Import error:', error)
 
     let errorMsg = error.message
-    
-    // Handle axios errors
     if (error.response?.data?.error) {
       errorMsg = error.response.data.error
     } else if (error.response?.data?.details) {

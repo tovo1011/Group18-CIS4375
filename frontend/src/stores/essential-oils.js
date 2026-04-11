@@ -114,6 +114,44 @@ export const useEssentialOilStore = defineStore('essential-oils', () => {
     }
   }
 
+  const bulkDeleteOils = async (ids) => {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await axios.post(`${API_URL}/essential-oils/bulk-delete`, { ids }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      })
+      
+      // Only remove from local state if backend confirms deletion was successful
+      if (response.data.deletedCount > 0) {
+        oils.value = oils.value.filter(o => !ids.includes(o.id))
+      }
+      
+      // If not all deletions succeeded, log a warning
+      if (response.data.deletedCount < response.data.requestedCount) {
+        error.value = `Only ${response.data.deletedCount} of ${response.data.requestedCount} oils were deleted`
+        console.warn('Bulk delete partial failure:', response.data)
+        // Refetch to ensure UI is in sync with actual database state
+        await fetchOils()
+      }
+      
+      return response.data
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Failed to bulk delete oils'
+      // Refetch to ensure UI is in sync if there was an error
+      try {
+        await fetchOils()
+      } catch (fetchErr) {
+        console.error('Failed to refetch oils after delete error:', fetchErr)
+      }
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   const setSearchQuery = (query) => {
     searchQuery.value = query
   }
@@ -134,6 +172,7 @@ export const useEssentialOilStore = defineStore('essential-oils', () => {
     addOil,
     updateOil,
     deleteOil,
+    bulkDeleteOils,
     setSearchQuery,
     setFilterSupplier
   }

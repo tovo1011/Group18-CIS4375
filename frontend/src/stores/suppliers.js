@@ -94,6 +94,25 @@ export const useSupplierStore = defineStore('suppliers', () => {
     }
   }
 
+  const bulkDeleteSuppliers = async (ids) => {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await axios.post(`${API_URL}/suppliers/bulk-delete`, { ids }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      })
+      suppliers.value = suppliers.value.filter(s => !ids.includes(s.id))
+      return response.data
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Failed to bulk delete suppliers'
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     suppliers,
     loading,
@@ -102,6 +121,7 @@ export const useSupplierStore = defineStore('suppliers', () => {
     fetchSuppliers,
     addSupplier,
     updateSupplier,
-    deleteSupplier
+    deleteSupplier,
+    bulkDeleteSuppliers
   }
 })
