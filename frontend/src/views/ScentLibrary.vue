@@ -1,8 +1,15 @@
 <template>
   <div class="scent-library">
+    <div class="breadcrumb">
+      <router-link to="/dashboard" class="bc-back">← Dashboard</router-link>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Scent Library</span>
+    </div>
     <div class="view-header">
-      <h2>🌹 Scent Library</h2>
-      <p>Manage fragrance formulas, ingredients, and notes</p>
+      <div class="view-header-left">
+        <h2>Scent Library</h2>
+        <p>Manage fragrance formulas, ingredients, and notes</p>
+      </div>
     </div>
 
     <div class="toolbar">
@@ -26,14 +33,6 @@
 
       <button v-if="canEdit" class="btn btn-primary" @click="openCreateModal">
         + New Scent
-      </button>
-
-      <button
-        v-if="selectedIds.size > 0 && canDelete"
-        class="btn btn-danger"
-        @click="openBulkDeleteConfirm"
-      >
-        🗑️ Delete Selected ({{ selectedIds.size }})
       </button>
     </div>
 
@@ -70,29 +69,9 @@
             <td class="created-by">{{ scent.createdBy }}</td>
             <td class="date">{{ scent.createdAt }}</td>
             <td class="actions">
-              <button
-                v-if="canEdit"
-                class="action-btn edit"
-                @click="openEditModal(scent)"
-                title="Edit"
-              >
-                ✏️
-              </button>
-              <button
-                v-if="canDelete"
-                class="action-btn delete"
-                @click="openDeleteConfirm(scent)"
-                title="Delete"
-              >
-                🗑️
-              </button>
-              <button
-                class="action-btn view"
-                @click="viewScent(scent)"
-                title="View Details"
-              >
-                👁️
-              </button>
+              <button v-if="canEdit" class="action-btn edit" @click="openEditModal(scent)">Edit</button>
+              <button class="action-btn view" @click="viewScent(scent)">View</button>
+              <button v-if="canDelete" class="action-btn delete" @click="openDeleteConfirm(scent)">Delete</button>
             </td>
           </tr>
         </tbody>
@@ -344,13 +323,7 @@ const handleBulkDeleteScents = async () => {
   pointer-events: none;
 }
 
-.filters {
-  display: flex;
-  gap: 8px;
-}
-
-.filters select,
-.sort-select {
+.filters select {
   padding: 10px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -359,11 +332,9 @@ const handleBulkDeleteScents = async () => {
   cursor: pointer;
 }
 
-.filters select:focus,
-.sort-select:focus {
+.filters select:focus {
   outline: none;
   border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .btn {
@@ -383,15 +354,6 @@ const handleBulkDeleteScents = async () => {
 
 .btn-primary:hover {
   background: #5568d3;
-}
-
-.btn-danger {
-  background: #dc3545;
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #c82333;
 }
 
 .table-container {
@@ -417,16 +379,6 @@ const handleBulkDeleteScents = async () => {
   text-align: left;
   font-weight: 600;
   color: #333;
-}
-
-.checkbox-cell {
-  width: 40px;
-  padding: 12px 8px !important;
-  text-align: center;
-}
-
-.checkbox-cell input[type="checkbox"] {
-  cursor: pointer;
 }
 
 .scents-table tbody tr {

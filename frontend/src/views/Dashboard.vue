@@ -1,217 +1,81 @@
 <template>
   <div class="dashboard">
-    <nav class="navbar">
-      <div class="navbar-content">
-        <h1 class="navbar-title">🌹 T4Scents</h1>
-        <div class="navbar-user">
-          <span>Welcome, {{ authStore.user?.name }}</span>
-          <button @click="handleLogout" class="logout-btn">Logout</button>
-        </div>
+    <!-- ── Topbar ── -->
+    <nav class="topbar">
+      <div class="topbar-left">
+        <img :src="'/logo.png'" alt="T4 Scents" class="nav-logo-img" />
+        <span class="nav-sep"></span>
+      </div>
+      <div class="topbar-right">
+        <span class="nav-welcome">Welcome, <strong>{{ authStore.user?.name }}</strong></span>
+        <span :class="`role-tag role-${authStore.user?.role}`">{{ authStore.user?.role?.toUpperCase() }}</span>
+        <button @click="handleLogout" class="signout-btn">Sign Out</button>
       </div>
     </nav>
 
-    <div class="dashboard-container">
+    <div class="layout">
+      <!-- ── Sidebar ── -->
       <aside class="sidebar">
-        <ul class="menu">
-          <li
-            v-for="item in menuItems"
-            :key="item.name"
-            :class="['menu-item', { active: isActive(item.route) }]"
-            @click="navigateTo(item.route)"
-          >
-            <span class="menu-icon">{{ item.icon }}</span>
-            <span>{{ item.label }}</span>
-          </li>
-        </ul>
-        <div class="role-badge">
-          <span :class="`badge-${authStore.user?.role}`">
-            {{ authStore.user?.role?.toUpperCase() }}
-          </span>
+        <div class="sidebar-section">
+          <p class="sidebar-label">Main</p>
+          <ul class="nav-menu">
+            <li
+              v-for="item in menuItems"
+              :key="item.name"
+              :class="['nav-link', { active: isActive(item.route) }]"
+              @click="navigateTo(item.route)"
+            >
+              <span class="nav-dot"></span>
+              {{ item.label }}
+            </li>
+          </ul>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="user-card">
+            <div class="user-avatar">{{ authStore.user?.name?.charAt(0)?.toUpperCase() || 'U' }}</div>
+            <div class="user-info">
+              <div class="user-name">{{ authStore.user?.name }}</div>
+              <div class="user-email">{{ authStore.user?.email }}</div>
+            </div>
+          </div>
         </div>
       </aside>
 
+      <!-- ── Main content (router view renders here) ── -->
       <main class="main-content">
-        <div class="welcome-section">
-          <h2>Welcome to T4Scents Dashboard</h2>
-          <p>Manage your fragrance formulas, ingredients, suppliers, and inventory in one centralized platform.</p>
-        </div>
-
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon">🌹</div>
-            <div class="stat-info">
-              <h3>Total Scents</h3>
-              <p class="stat-value">{{ totalScents }}</p>
-            </div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-icon">�</div>
-            <div class="stat-info">
-              <h3>Total Oils</h3>
-              <p class="stat-value">{{ totalOils }}</p>
-            </div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-icon">🏢</div>
-            <div class="stat-info">
-              <h3>Active Suppliers</h3>
-              <p class="stat-value">{{ totalSuppliers }}</p>
-            </div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-icon">📈</div>
-            <div class="stat-info">
-              <h3>Recent Activities</h3>
-              <p class="stat-value">{{ recentActivities }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="content-cards">
-          <div class="card">
-            <h3>Quick Actions</h3>
-            <div class="quick-actions">
-              <button v-if="canEdit" class="action-btn" @click="navigateTo('/scents')">
-                + New Scent
-              </button>
-              <button v-if="canEdit" class="action-btn" @click="navigateTo('/oils')">
-                + Add Oil
-              </button>
-              <button v-if="canEdit" class="action-btn" @click="navigateTo('/suppliers')">
-                + Add Supplier
-              </button>
-              <button class="action-btn" @click="navigateTo('/import-export')">
-                📤 Import/Export
-              </button>
-            </div>
-          </div>
-
-          <div class="card">
-            <h3>System Status</h3>
-            <div class="status-list">
-              <div class="status-item">
-                <span class="status-label">Database Connection</span>
-                <span class="status-indicator success">● Connected</span>
-              </div>
-              <div class="status-item">
-                <span class="status-label">API Status</span>
-                <span class="status-indicator success">● Operational</span>
-              </div>
-              <div class="status-item">
-                <span class="status-label">Last Sync</span>
-                <span class="status-value">Just now</span>
-              </div>
-              <div class="status-item">
-                <span class="status-label">Data Backup</span>
-                <span class="status-value">Today at 2:00 AM</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="info-section">
-          <h3>📋 Getting Started</h3>
-          <div class="getting-started">
-            <div class="step">
-              <span class="step-number">1</span>
-              <div class="step-content">
-                <h4>Create Scent Formulas</h4>
-                <p>Go to <router-link to="/scents">Scent Library</router-link> to create new fragrance formulas with top, middle, and base notes.</p>
-              </div>
-            </div>
-            <div class="step">
-              <span class="step-number">2</span>
-              <div class="step-content">
-                <h4>Manage Essential Oils</h4>
-                <p>Visit <router-link to="/oils">Essential Oils</router-link> to add and organize all your fragrance components.</p>
-              </div>
-            </div>
-            <div class="step">
-              <span class="step-number">3</span>
-              <div class="step-content">
-                <h4>Track Suppliers</h4>
-                <p>Maintain supplier information in <router-link to="/suppliers">Suppliers</router-link> for better inventory management.</p>
-              </div>
-            </div>
-            <div class="step">
-              <span class="step-number">4</span>
-              <div class="step-content">
-                <h4>Import & Export</h4>
-                <p>Use <router-link to="/import-export">Import/Export</router-link> to batch upload or download your data.</p>
-              </div>
-            </div>
-            <div v-if="isAdmin" class="step">
-              <span class="step-number">5</span>
-              <div class="step-content">
-                <h4>Audit Trail</h4>
-                <p>Monitor all changes in <router-link to="/audit-logs">Audit Logs</router-link> for compliance and tracking.</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <RouterView />
       </main>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useRouter, RouterView } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { useScentStore } from '../stores/scents'
-import { useEssentialOilStore } from '../stores/essential-oils'
-import { useSupplierStore } from '../stores/suppliers'
-import { useAuditStore } from '../stores/audit'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const scentStore = useScentStore()
-const essentialOilStore = useEssentialOilStore()
-const supplierStore = useSupplierStore()
-const auditStore = useAuditStore()
-
-const currentRoute = ref('dashboard')
 
 const menuItems = computed(() => {
   const items = [
-    { name: 'dashboard', label: 'Dashboard', icon: '📊', route: '/dashboard' },
-    { name: 'scents', label: 'Scent Library', icon: '🌹', route: '/scents' },
-    { name: 'oils', label: 'Essential Oils', icon: '🧃', route: '/oils' },
-    { name: 'suppliers', label: 'Suppliers', icon: '🏢', route: '/suppliers' },
-    { name: 'import-export', label: 'Import/Export', icon: '📤', route: '/import-export' }
+    { name: 'dashboard',     label: 'Dashboard',      route: '/dashboard' },
+    { name: 'scents',        label: 'Scent Library',   route: '/scents' },
+    { name: 'oils',          label: 'Essential Oils',  route: '/oils' },
+    { name: 'ingredients',   label: 'Ingredients',     route: '/ingredients' },
+    { name: 'suppliers',     label: 'Suppliers',       route: '/suppliers' },
+    { name: 'import-export', label: 'Import / Export', route: '/import-export' },
   ]
-
   if (['admin', 'manager'].includes(authStore.user?.role)) {
-    items.push({ name: 'audit', label: 'Audit Logs', icon: '📋', route: '/audit-logs' })
+    items.push({ name: 'audit', label: 'Audit Logs', route: '/audit-logs' })
   }
-
   return items
 })
 
-const totalScents = computed(() => scentStore.scents.filter(s => !s.archivedAt).length)
-const totalOils = computed(() => essentialOilStore.oils.length)
-const totalSuppliers = computed(() => supplierStore.suppliers.length)
-const recentActivities = computed(() => auditStore.auditLogs.length)
+const isActive = (route) => router.currentRoute.value.path === route
 
-const canEdit = computed(() => {
-  return ['admin', 'manager'].includes(authStore.user?.role)
-})
-
-const isAdmin = computed(() => {
-  return authStore.user?.role === 'admin'
-})
-
-const isActive = (route) => {
-  return router.currentRoute.value.path === route
-}
-
-const navigateTo = (route) => {
-  router.push(route)
-  currentRoute.value = route
-}
+const navigateTo = (route) => router.push(route)
 
 const handleLogout = () => {
   authStore.logout()
@@ -224,388 +88,134 @@ const handleLogout = () => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f5f5f5;
+  background: var(--cream);
 }
 
-.navbar {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+/* ── Topbar ── */
+.topbar {
+  height: 56px;
+  background: var(--brown);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  flex-shrink: 0;
+  border-bottom: 2px solid var(--gold-dk);
+  box-shadow: 0 2px 16px rgba(44,24,16,0.4);
   z-index: 100;
 }
 
-.navbar-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  max-width: 100%;
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+
+.nav-logo-img {
+  height: 36px;
+  width: auto;
+  display: block;
+  /* invert dark bg so logo gold shows properly */
+  filter: brightness(1.1) contrast(1.05);
 }
 
-.navbar-title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 1px;
+.nav-sep { width: 1px; height: 18px; background: rgba(201,160,72,0.25); }
+.nav-sub { font-size: 10px; color: rgba(232,201,123,0.6); letter-spacing: 0.18em; text-transform: uppercase; font-weight: 500; }
+
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.nav-welcome { font-size: 12px; color: rgba(249,240,225,0.75); }
+.nav-welcome strong { color: var(--gold-lt); }
+
+.role-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 4px;
+  background: rgba(201,160,72,0.18); color: var(--gold);
+  border: 1px solid rgba(201,160,72,0.3);
 }
 
-.navbar-user {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.signout-btn {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid rgba(201,160,72,0.3);
+  border-radius: 6px;
+  color: var(--gold-lt);
+  font-size: 11px; font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer; letter-spacing: 0.04em;
+  transition: all .18s;
 }
+.signout-btn:hover { background: rgba(201,160,72,0.12); border-color: var(--gold); }
 
-.navbar-user span {
-  font-size: 14px;
-}
+/* ── Layout ── */
+.layout { display: flex; flex: 1; overflow: hidden; }
 
-.logout-btn {
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.3s ease;
-}
-
-.logout-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.dashboard-container {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
+/* ── Sidebar ── */
 .sidebar {
-  width: 260px;
-  background: white;
-  border-right: 1px solid #ddd;
-  overflow-y: auto;
+  width: 220px;
+  background: var(--white);
+  border-right: 1px solid var(--cream-mid);
   display: flex;
   flex-direction: column;
-}
-
-.menu {
-  list-style: none;
-  margin: 0;
-  padding: 16px 0;
-  flex: 1;
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 20px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: #666;
-  font-size: 14px;
-}
-
-.menu-item:hover {
-  background: #f5f5f5;
-  color: #667eea;
-}
-
-.menu-item.active {
-  background: #f0f3ff;
-  color: #667eea;
-  border-right: 3px solid #667eea;
-  font-weight: 600;
-}
-
-.menu-icon {
-  font-size: 18px;
-}
-
-.role-badge {
-  padding: 16px 20px;
-  border-top: 1px solid #eee;
-  text-align: center;
-}
-
-.badge-admin {
-  display: inline-block;
-  background: #dc3545;
-  color: white;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.badge-manager {
-  display: inline-block;
-  background: #ffc107;
-  color: #333;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.badge-viewer {
-  display: inline-block;
-  background: #6c757d;
-  color: white;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.main-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 30px;
-}
-
-.welcome-section {
-  margin-bottom: 30px;
-}
-
-.welcome-section h2 {
-  margin: 0 0 8px 0;
-  font-size: 24px;
-  color: #333;
-}
-
-.welcome-section p {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  display: flex;
-  gap: 16px;
-  transition: transform 0.2s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-}
-
-.stat-icon {
-  font-size: 32px;
-  text-align: center;
-  min-width: 50px;
-}
-
-.stat-info h3 {
-  margin: 0 0 8px 0;
-  font-size: 14px;
-  color: #666;
-  font-weight: 600;
-}
-
-.stat-value {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  color: #667eea;
-}
-
-.content-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.card {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.card h3 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-  color: #333;
-}
-
-.quick-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.action-btn {
-  padding: 10px 16px;
-  background: #667eea;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  text-align: left;
-}
-
-.action-btn:hover {
-  background: #5568d3;
-}
-
-.status-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.status-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid #eee;
-}
-
-.status-item:last-child {
-  border-bottom: none;
-}
-
-.status-label {
-  font-size: 13px;
-  color: #666;
-}
-
-.status-indicator {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.status-indicator.success {
-  color: #27ae60;
-}
-
-.status-value {
-  font-size: 13px;
-  color: #999;
-}
-
-.info-section {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.info-section h3 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-  color: #333;
-}
-
-.getting-started {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.step {
-  display: flex;
-  gap: 16px;
-}
-
-.step-number {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: #667eea;
-  color: white;
-  border-radius: 50%;
-  font-weight: 700;
   flex-shrink: 0;
 }
 
-.step-content h4 {
-  margin: 0 0 4px 0;
-  font-size: 14px;
-  color: #333;
+.sidebar-section { padding: 20px 14px 8px; }
+.sidebar-label {
+  font-size: 9px; font-weight: 700; color: var(--brown-lt);
+  letter-spacing: 0.20em; text-transform: uppercase;
+  margin: 0 0 6px; padding-left: 8px;
 }
 
-.step-content p {
-  margin: 0;
-  font-size: 13px;
-  color: #666;
+.nav-menu { list-style: none; margin: 0; padding: 0; }
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 12.5px; font-weight: 500;
+  color: var(--brown-lt);
+  cursor: pointer;
+  transition: all .15s;
+  margin-bottom: 1px;
+}
+.nav-link:hover { background: var(--cream); color: var(--brown-md); }
+.nav-link.active { background: var(--brown); color: var(--gold-lt); font-weight: 600; }
+
+.nav-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor; opacity: 0.5; flex-shrink: 0;
+}
+.nav-link.active .nav-dot { background: var(--gold); opacity: 1; }
+
+/* ── Sidebar footer ── */
+.sidebar-footer { margin-top: auto; padding: 14px; border-top: 1px solid var(--cream-mid); }
+.user-card {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--cream); border-radius: 10px;
+  padding: 10px 12px; border: 1px solid var(--cream-mid);
+}
+.user-avatar {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: var(--brown); color: var(--gold-lt);
+  font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.user-name { font-size: 12px; font-weight: 600; color: var(--brown); }
+.user-email { font-size: 10px; color: var(--brown-lt); margin-top: 1px; }
+
+/* ── Main ── */
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
 }
 
-.step-content a {
-  color: #667eea;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.step-content a:hover {
-  text-decoration: underline;
-}
-
+/* ── Responsive ── */
 @media (max-width: 768px) {
-  .dashboard-container {
-    flex-direction: column;
-  }
-
-  .sidebar {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid #ddd;
-  }
-
-  .menu {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    padding: 8px;
-    gap: 4px;
-  }
-
-  .menu-item {
-    justify-content: center;
-    padding: 8px;
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .menu-item.active {
-    border-right: none;
-    border-bottom: 3px solid #667eea;
-  }
-
-  .main-content {
-    padding: 16px;
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .stat-card {
-    flex-direction: column;
-  }
-
-  .content-cards {
-    grid-template-columns: 1fr;
-  }
+  .layout { flex-direction: column; }
+  .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--cream-mid); }
+  .nav-menu { display: flex; flex-wrap: wrap; gap: 4px; }
+  .nav-link { padding: 7px 10px; font-size: 12px; }
+  .sidebar-footer { display: none; }
+  .main-content { padding: 16px; }
 }
 </style>

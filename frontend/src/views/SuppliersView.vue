@@ -1,8 +1,15 @@
 <template>
   <div class="suppliers-view">
+    <div class="breadcrumb">
+      <router-link to="/dashboard" class="bc-back">← Dashboard</router-link>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Suppliers</span>
+    </div>
     <div class="view-header">
-      <h2>🏢 Suppliers</h2>
-      <p>Manage ingredient suppliers and contact information</p>
+      <div class="view-header-left">
+        <h2>Suppliers</h2>
+        <p>Manage ingredient suppliers and contact information</p>
+      </div>
     </div>
 
     <div class="toolbar">
@@ -26,14 +33,6 @@
 
       <button v-if="canEdit" class="btn btn-primary" @click="openCreateModal">
         + Add Supplier
-      </button>
-
-      <button
-        v-if="selectedIds.size > 0 && canDelete"
-        class="btn btn-danger"
-        @click="openBulkDeleteConfirm"
-      >
-        🗑️ Delete Selected ({{ selectedIds.size }})
       </button>
     </div>
 
@@ -85,22 +84,8 @@
               <span v-else class="no-link">—</span>
             </td>
             <td class="actions">
-              <button
-                v-if="canEdit"
-                class="action-btn edit"
-                @click="openEditModal(supplier)"
-                title="Edit"
-              >
-                ✏️
-              </button>
-              <button
-                v-if="canDelete"
-                class="action-btn delete"
-                @click="openDeleteConfirm(supplier)"
-                title="Delete"
-              >
-                🗑️
-              </button>
+              <button v-if="canEdit" class="action-btn edit" @click="openEditModal(supplier)">Edit</button>
+              <button v-if="canDelete" class="action-btn delete" @click="openDeleteConfirm(supplier)">Delete</button>
             </td>
           </tr>
         </tbody>
@@ -355,28 +340,6 @@ const handleBulkDeleteSuppliers = async () => {
   pointer-events: none;
 }
 
-.filters {
-  display: flex;
-  gap: 8px;
-}
-
-.filters select,
-.sort-select {
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  background: white;
-  cursor: pointer;
-}
-
-.filters select:focus,
-.sort-select:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
 .btn {
   padding: 10px 16px;
   border: none;
@@ -394,15 +357,6 @@ const handleBulkDeleteSuppliers = async () => {
 
 .btn-primary:hover {
   background: #5568d3;
-}
-
-.btn-danger {
-  background: #dc3545;
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #c82333;
 }
 
 .table-container {
@@ -428,16 +382,6 @@ const handleBulkDeleteSuppliers = async () => {
   text-align: left;
   font-weight: 600;
   color: #333;
-}
-
-.checkbox-cell {
-  width: 40px;
-  padding: 12px 8px !important;
-  text-align: center;
-}
-
-.checkbox-cell input[type="checkbox"] {
-  cursor: pointer;
 }
 
 .suppliers-table tbody tr {

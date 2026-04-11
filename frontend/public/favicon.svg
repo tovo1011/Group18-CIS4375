@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#2C1810"/>
+  <text x="32" y="26" font-family="Georgia, serif" font-size="18" font-weight="bold" font-style="italic" fill="#C9A048" text-anchor="middle">T4</text>
+  <text x="32" y="44" font-family="Georgia, serif" font-size="12" font-style="italic" fill="#E8C97B" text-anchor="middle">Scents</text>
+  <!-- tiny rays -->
+  <line x1="32" y1="4" x2="32" y2="10" stroke="#C9A048" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="40" y1="6" x2="38" y2="11" stroke="#C9A048" stroke-width="1" stroke-linecap="round"/>
+  <line x1="24" y1="6" x2="26" y2="11" stroke="#C9A048" stroke-width="1" stroke-linecap="round"/>
+  <line x1="46" y1="10" x2="43" y2="14" stroke="#C9A048" stroke-width="1" stroke-linecap="round"/>
+  <line x1="18" y1="10" x2="21" y2="14" stroke="#C9A048" stroke-width="1" stroke-linecap="round"/>
+</svg>

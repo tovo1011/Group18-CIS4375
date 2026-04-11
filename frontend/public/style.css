@@ -1,49 +1,301 @@
-* {
-  box-sizing: border-box;
+/* ── T4 Scents Brand Variables ── */
+:root {
+  --cream:     #F9F0E1;
+  --cream-mid: #F0DFC0;
+  --cream-dk:  #E6C99A;
+  --gold-lt:   #E8C97B;
+  --gold:      #C9A048;
+  --gold-dk:   #A07828;
+  --brown:     #2C1810;
+  --brown-md:  #5C3822;
+  --brown-lt:  #9C8472;
+  --white:     #FFFFFF;
+  --green:     #4A7C59;
+  --red:       #9B3A3A;
+  --font-sans: 'Poppins', 'Segoe UI', sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
 }
 
-html,
-body {
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  width: 100%; height: 100%;
+  font-family: var(--font-sans);
+  background: var(--cream);
+  font-size: 13px;
+  color: var(--brown);
+}
+
+#app { width: 100%; height: 100%; }
+
+button { font-family: var(--font-sans); }
+input, textarea, select { font-family: var(--font-sans); }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--cream); }
+::-webkit-scrollbar-thumb { background: var(--cream-dk); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold-dk); }
+
+/* ════════════════════════════════
+   SHARED VIEW LAYOUT
+   ════════════════════════════════ */
+
+/* Breadcrumb */
+.breadcrumb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--brown-lt); margin-bottom: 14px;
+}
+.bc-back {
+  color: var(--gold-dk); text-decoration: none; font-weight: 600;
+  transition: color .15s;
+}
+.bc-back:hover { color: var(--brown); }
+.bc-sep { color: var(--cream-dk); }
+.bc-current { color: var(--brown); font-weight: 600; }
+
+/* Page header */
+.view-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.view-header-left h2 {
+  margin: 0 0 3px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--brown);
+}
+.view-header-left p {
   margin: 0;
-  padding: 0;
+  font-size: 12px;
+  color: var(--brown-lt);
+}
+
+/* Toolbar (search + filters + add btn) */
+.toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search-bar {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
+}
+.search-bar input {
   width: 100%;
-  height: 100%;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: #f5f5f5;
+  padding: 9px 36px 9px 12px;
+  border: 1.5px solid var(--cream-mid);
+  border-radius: 8px;
+  font-size: 12.5px;
+  background: var(--white);
+  color: var(--brown);
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.search-bar input::placeholder { color: var(--brown-lt); }
+.search-bar input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201,160,72,0.12);
+}
+.search-icon {
+  position: absolute; right: 11px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px; pointer-events: none; color: var(--brown-lt);
 }
 
-#app {
+.filters select {
+  padding: 9px 12px;
+  border: 1.5px solid var(--cream-mid);
+  border-radius: 8px;
+  font-size: 12.5px;
+  background: var(--white);
+  color: var(--brown);
+  outline: none;
+  cursor: pointer;
+  transition: border-color .2s;
+}
+.filters select:focus { border-color: var(--gold); }
+
+/* ── Buttons ── */
+.btn {
+  padding: 9px 16px;
+  border: none; border-radius: 8px;
+  font-size: 12.5px; font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer; transition: all .18s;
+  letter-spacing: 0.03em;
+}
+.btn-primary {
+  background: var(--brown);
+  color: var(--gold-lt);
+}
+.btn-primary:hover { background: var(--brown-md); }
+
+.btn-secondary {
+  background: var(--white);
+  color: var(--brown-md);
+  border: 1.5px solid var(--cream-mid);
+}
+.btn-secondary:hover { border-color: var(--gold); color: var(--gold-dk); }
+
+.btn-danger {
+  background: #FEF2F2;
+  color: var(--red);
+  border: 1.5px solid #F3C0C0;
+}
+.btn-danger:hover { background: #FDE8E8; }
+
+/* ── Table card ── */
+.table-container {
+  background: var(--white);
+  border-radius: 12px;
+  border: 1px solid var(--cream-mid);
+  overflow: hidden;
+}
+
+.table-container table {
   width: 100%;
-  height: 100%;
+  border-collapse: collapse;
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.table-container thead {
+  background: var(--cream);
+  border-bottom: 1px solid var(--cream-mid);
 }
 
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
+.table-container th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--brown-lt);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
-::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
+.table-container td {
+  padding: 11px 16px;
+  font-size: 12.5px;
+  color: var(--brown-md);
+  border-bottom: 1px solid #FDF6EC;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #555;
+.table-container tbody tr:last-child td { border-bottom: none; }
+.table-container tbody tr:hover td { background: #FDFAF5; }
+
+/* ── Action buttons in table ── */
+.actions { display: flex; gap: 6px; }
+.action-btn {
+  padding: 4px 10px;
+  border: 1.5px solid var(--cream-mid);
+  border-radius: 6px;
+  background: transparent;
+  font-size: 11px; font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--brown-lt); cursor: pointer;
+  transition: all .15s;
+}
+.action-btn:hover { border-color: var(--gold); color: var(--gold-dk); background: rgba(201,160,72,0.06); }
+.action-btn.delete { color: var(--red); border-color: #F3C0C0; }
+.action-btn.delete:hover { background: #FEF2F2; }
+
+/* ── Note badges ── */
+.badge {
+  display: inline-block;
+  font-size: 10px; font-weight: 600;
+  padding: 2px 8px; border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+.badge-top  { background: #FFF3CD; color: #856404; }
+.badge-mid  { background: #D1E7DD; color: #0A5237; }
+.badge-base { background: #E2D9F3; color: #5A3E8A; }
+.badge-create { background: rgba(74,124,89,0.12); color: var(--green); }
+.badge-update { background: rgba(201,160,72,0.15); color: var(--gold-dk); }
+.badge-delete { background: rgba(155,58,58,0.12); color: var(--red); }
+
+/* ── Empty state ── */
+.empty-state {
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--brown-lt);
+  font-size: 13px;
+}
+.empty-state p { margin: 0; }
+
+/* ── Modal overlay ── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(44,24,16,0.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal {
+  background: var(--white);
+  border-radius: 16px;
+  width: 100%; max-width: 560px;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(44,24,16,0.25);
+  border-top: 3px solid var(--gold);
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--cream-mid);
+}
+.modal-header h3 {
+  margin: 0; font-size: 16px; font-weight: 700; color: var(--brown);
+}
+.modal-close {
+  background: none; border: none; font-size: 20px;
+  color: var(--brown-lt); cursor: pointer; line-height: 1;
+  padding: 0 4px; transition: color .15s;
+}
+.modal-close:hover { color: var(--brown); }
+.modal-body { padding: 20px 24px; }
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--cream-mid);
+  display: flex; justify-content: flex-end; gap: 10px;
 }
 
-/* Button reset */
-button {
-  font-family: inherit;
+/* ── Form groups ── */
+.form-group { margin-bottom: 16px; }
+.form-group label {
+  display: block;
+  font-size: 10px; font-weight: 700;
+  color: var(--brown-md);
+  letter-spacing: 0.12em; text-transform: uppercase;
+  margin-bottom: 7px;
+}
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 13px;
+  border: 1.5px solid var(--cream-mid);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--brown);
+  background: var(--cream);
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201,160,72,0.12);
+  background: var(--white);
 }
 
-/* Input reset */
-input,
-textarea,
-select {
-  font-family: inherit;
-}
+/* ── Status indicators ── */
+.status-dot-green { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-right: 5px; }
+.status-dot-gold  { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); margin-right: 5px; }
