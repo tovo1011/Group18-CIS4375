@@ -5,7 +5,6 @@ import Dashboard from '../views/Dashboard.vue'
 import DashboardHome from '../views/DashboardHome.vue'
 import ScentLibrary from '../views/ScentLibrary.vue'
 import EssentialOilsView from '../views/EssentialOilsView.vue'
-import IngredientsView from '../views/IngredientsView.vue'
 import SuppliersView from '../views/SuppliersView.vue'
 import AuditLogs from '../views/AuditLogs.vue'
 import ImportExport from '../views/ImportExport.vue'
@@ -28,7 +27,6 @@ const routes = [
       { path: 'dashboard',    name: 'Dashboard',    component: DashboardHome },
       { path: 'scents',       name: 'ScentLibrary', component: ScentLibrary },
       { path: 'oils',         name: 'EssentialOils', component: EssentialOilsView },
-      { path: 'ingredients',  name: 'Ingredients',  component: IngredientsView },
       { path: 'suppliers',    name: 'Suppliers',    component: SuppliersView },
       { path: 'import-export', name: 'ImportExport', component: ImportExport },
       {

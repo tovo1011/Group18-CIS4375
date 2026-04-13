@@ -36,9 +36,7 @@
 
       <div v-if="error" class="error-msg">{{ error }}</div>
 
-      <div class="divider"><span>Demo Credentials</span></div>
-      <div class="demo-box">
-        <strong>Email</strong> manager@perfume.com &nbsp;·&nbsp; <strong>Password</strong> any
+      <div>
       </div>
     </div>
   </div>

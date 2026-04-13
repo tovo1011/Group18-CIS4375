@@ -164,20 +164,7 @@ const uploading = ref(false)
 const uploadStatus = ref(null)
 const exportFormat = ref('csv')
 const exportMessage = ref(null)
-const importHistory = ref([
-  {
-    filename: 'scents_batch_01.xlsx',
-    rows: 12,
-    status: 'Success',
-    date: '2025-02-10'
-  },
-  {
-    filename: 'new_formulas.csv',
-    rows: 5,
-    status: 'Success',
-    date: '2025-02-05'
-  }
-])
+const importHistory = ref([])
 
 onMounted(async () => {
   // Fetch essential oils on component load to ensure store is populated
