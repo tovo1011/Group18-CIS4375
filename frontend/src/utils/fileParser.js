@@ -105,11 +105,14 @@ const mapToScentObjects = (rawData) => {
     .map((row, originalIndex) => {
       // Handle different column name variations
       const name = getColumnValue(row, ['Name', 'Scent Name', 'name', 'scentName'])
-      const allNotes = getColumnValue(row, ['Fragrance Notes', 'All Notes', 'allNotes', 'notes', 'fragrance', 'Top Notes', 'topNotes'])
+      const topNotes = getColumnValue(row, ['Top Notes', 'topNotes', 'top_notes'])
+      const middleNotes = getColumnValue(row, ['Middle Notes', 'middleNotes', 'middle_notes'])
+      const baseNotes = getColumnValue(row, ['Base Notes', 'baseNotes', 'base_notes'])
+      const allNotes = getColumnValue(row, ['Fragrance Notes', 'All Notes', 'allNotes', 'all_notes', 'notes', 'fragrance'])
       const essentialOils = getColumnValue(row, ['Essential Oils', 'essentialOils', 'essentialoils', 'oils', 'ingredients'])
 
       // Skip completely empty rows (all fields empty)
-      const hasAnyData = name || allNotes || essentialOils
+      const hasAnyData = name || topNotes || middleNotes || baseNotes || allNotes || essentialOils
       if (!hasAnyData) {
         return null // Mark for filtering
       }
@@ -121,9 +124,9 @@ const mapToScentObjects = (rawData) => {
 
       return {
         name: name.trim(),
-        topNotes: '',  // Keep empty, use all_notes instead
-        middleNotes: '',  // Keep empty, use all_notes instead
-        baseNotes: '',  // Keep empty, use all_notes instead
+        topNotes: topNotes ? topNotes.trim() : '',
+        middleNotes: middleNotes ? middleNotes.trim() : '',
+        baseNotes: baseNotes ? baseNotes.trim() : '',
         allNotes: allNotes ? allNotes.trim() : '',
         essentialOils: essentialOils ? essentialOils.trim() : '',
         createdBy: '', // Will be set by backend

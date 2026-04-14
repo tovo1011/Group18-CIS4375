@@ -350,6 +350,35 @@ def categorize_scent_notes(all_notes_str):
 
 # ==================== Scent Routes ====================
 
+def clean_notes(text):
+    """Strip surrounding parentheses, brackets, and extra whitespace from notes."""
+    if not text:
+        return ''
+    return text.strip().strip('()[]').strip()
+
+def format_scent(s):
+    """Format a scent row, auto-categorizing notes if individual fields are empty."""
+    top = clean_notes(s['top_notes'] or '')
+    middle = clean_notes(s['middle_notes'] or '')
+    base = clean_notes(s['base_notes'] or '')
+    all_notes = clean_notes(s.get('all_notes', '') or '')
+
+    if not (top or middle or base) and all_notes:
+        top, middle, base = categorize_scent_notes(all_notes)
+
+    return {
+        'id': s['id'],
+        'name': s['name'],
+        'topNotes': top,
+        'middleNotes': middle,
+        'baseNotes': base,
+        'allNotes': all_notes,
+        'essentialOils': s.get('essential_oils', ''),
+        'createdBy': s['created_by'],
+        'createdAt': s['created_at'],
+        'archivedAt': s['archived_at']
+    }
+
 @app.route('/api/scents', methods=['GET'])
 @token_required
 def get_scents(current_user):
@@ -357,18 +386,7 @@ def get_scents(current_user):
     db_conn = get_db_connection()
     query = "SELECT * FROM Scents WHERE archived_at IS NULL"
     scents = execute_read_query(db_conn, query)
-    return jsonify([{
-        'id': s['id'],
-        'name': s['name'],
-        'topNotes': s['top_notes'],
-        'middleNotes': s['middle_notes'],
-        'baseNotes': s['base_notes'],
-        'allNotes': s.get('all_notes', ''),
-        'essentialOils': s.get('essential_oils', ''),
-        'createdBy': s['created_by'],
-        'createdAt': s['created_at'],
-        'archivedAt': s['archived_at']
-    } for s in scents]), 200
+    return jsonify([format_scent(s) for s in scents]), 200
 
 @app.route('/api/scents/<int:scent_id>', methods=['GET'])
 @token_required
@@ -377,23 +395,11 @@ def get_scent(current_user, scent_id):
     db_conn = get_db_connection()
     query = "SELECT * FROM Scents WHERE id = %s"
     scents = execute_read_query(db_conn, query, (scent_id,))
-    
+
     if not scents:
         return jsonify({'message': 'Scent not found'}), 404
-    
-    s = scents[0]
-    return jsonify({
-        'id': s['id'],
-        'name': s['name'],
-        'topNotes': s['top_notes'],
-        'middleNotes': s['middle_notes'],
-        'baseNotes': s['base_notes'],
-        'allNotes': s.get('all_notes', ''),
-        'essentialOils': s.get('essential_oils', ''),
-        'createdBy': s['created_by'],
-        'createdAt': s['created_at'],
-        'archivedAt': s['archived_at']
-    }), 200
+
+    return jsonify(format_scent(scents[0])), 200
 
 @app.route('/api/scents', methods=['POST'])
 @token_required
@@ -618,19 +624,25 @@ def import_scents(current_user):
                     errors.append(f"Row {index + 1}: Scent '{scent_data['name']}' already exists")
                     continue
                 
-                # Get note values - use all_notes as single field, leave categorized notes empty
+                # Get note values
                 all_notes = scent_data.get('allNotes', '').strip() or scent_data.get('all_notes', '').strip()
-                
-                # Insert scent with all_notes only, leave top/middle/base empty
+                top_notes = scent_data.get('topNotes', '').strip() or scent_data.get('top_notes', '').strip()
+                middle_notes = scent_data.get('middleNotes', '').strip() or scent_data.get('middle_notes', '').strip()
+                base_notes = scent_data.get('baseNotes', '').strip() or scent_data.get('base_notes', '').strip()
+
+                # If separate notes weren't provided, auto-categorize from all_notes
+                if not (top_notes or middle_notes or base_notes) and all_notes:
+                    top_notes, middle_notes, base_notes = categorize_scent_notes(all_notes)
+
                 insert_query = """
                 INSERT INTO Scents (name, top_notes, middle_notes, base_notes, all_notes, essential_oils, created_by)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """
                 values = (
                     scent_data.get('name', '').strip(),
-                    '',  # top_notes empty
-                    '',  # middle_notes empty
-                    '',  # base_notes empty
+                    top_notes,
+                    middle_notes,
+                    base_notes,
                     all_notes,
                     scent_data.get('essentialOils', '').strip() or scent_data.get('essential_oils', '').strip(),
                     current_user['Email']

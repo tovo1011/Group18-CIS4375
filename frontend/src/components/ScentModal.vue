@@ -19,14 +19,33 @@
         </div>
 
         <div class="form-group">
-          <label for="allNotes">Fragrance Notes *</label>
-          <textarea
-            id="allNotes"
-            v-model="formData.allNotes"
-            placeholder="Enter all fragrance notes (e.g., Bergamot, Rose, Jasmine, Sandalwood, Musk)"
-            required
-            rows="4"
-          ></textarea>
+          <label for="topNotes">Top Notes</label>
+          <input
+            id="topNotes"
+            v-model="formData.topNotes"
+            type="text"
+            placeholder="e.g., Bergamot, Lemon, Mint"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="middleNotes">Middle Notes</label>
+          <input
+            id="middleNotes"
+            v-model="formData.middleNotes"
+            type="text"
+            placeholder="e.g., Rose, Jasmine, Lavender"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="baseNotes">Base Notes</label>
+          <input
+            id="baseNotes"
+            v-model="formData.baseNotes"
+            type="text"
+            placeholder="e.g., Sandalwood, Musk, Vanilla"
+          />
         </div>
 
         <div class="modal-actions">
@@ -55,6 +74,9 @@ const emit = defineEmits(['close', 'submit'])
 const isEditing = ref(false)
 const formData = ref({
   name: '',
+  topNotes: '',
+  middleNotes: '',
+  baseNotes: '',
   allNotes: '',
   createdBy: 'admin@t4scents.com'
 })
@@ -67,6 +89,9 @@ watch(() => props.isOpen, (newVal) => {
     isEditing.value = false
     formData.value = {
       name: '',
+      topNotes: '',
+      middleNotes: '',
+      baseNotes: '',
       allNotes: '',
       createdBy: 'admin@t4scents.com'
     }

@@ -49,7 +49,9 @@
               />
             </th>
             <th>Name</th>
-            <th>Fragrance Notes</th>
+            <th>Top Notes</th>
+            <th>Middle Notes</th>
+            <th>Base Notes</th>
             <th>Created By</th>
             <th>Date</th>
             <th>Actions</th>
@@ -65,7 +67,18 @@
               />
             </td>
             <td class="scent-name">{{ scent.name }}</td>
-            <td class="notes">{{ scent.allNotes }}</td>
+            <td class="notes">
+              <span v-if="scent.topNotes" class="note-pill pill-top">{{ scent.topNotes }}</span>
+              <span v-else class="note-empty">—</span>
+            </td>
+            <td class="notes">
+              <span v-if="scent.middleNotes" class="note-pill pill-middle">{{ scent.middleNotes }}</span>
+              <span v-else class="note-empty">—</span>
+            </td>
+            <td class="notes">
+              <span v-if="scent.baseNotes" class="note-pill pill-base">{{ scent.baseNotes }}</span>
+              <span v-else class="note-empty">—</span>
+            </td>
             <td class="created-by">{{ scent.createdBy }}</td>
             <td class="date">{{ scent.createdAt }}</td>
             <td class="actions">
@@ -79,6 +92,82 @@
 
       <div v-if="sortedScents.length === 0" class="empty-state">
         <p>No scents found. Create your first scent formula!</p>
+      </div>
+    </div>
+
+    <!-- View Modal -->
+    <div v-if="viewModalOpen" class="modal-overlay" @click="viewModalOpen = false">
+      <div class="modal-content view-modal" @click.stop>
+        <div class="view-modal-header">
+          <div>
+            <p class="view-modal-subtitle">Fragrance Profile</p>
+            <h2 class="view-modal-title">{{ viewingScent?.name }}</h2>
+          </div>
+          <button class="close-btn" @click="viewModalOpen = false">&times;</button>
+        </div>
+
+        <div class="view-modal-body">
+          <!-- Fragrance Pyramid -->
+          <div class="pyramid-section">
+            <div class="pyramid-tier top-tier">
+              <div class="tier-header">
+                <span class="tier-dot top-dot"></span>
+                <span class="tier-title">Top Notes</span>
+                <span class="tier-desc">First impression · evaporates quickly</span>
+              </div>
+              <div class="tag-list">
+                <template v-if="viewingScent?.topNotes">
+                  <span v-for="note in viewingScent.topNotes.split(',')" :key="note" class="tag tag-top">{{ note.trim() }}</span>
+                </template>
+                <span v-else class="tag-empty">—</span>
+              </div>
+            </div>
+
+            <div class="pyramid-tier middle-tier">
+              <div class="tier-header">
+                <span class="tier-dot middle-dot"></span>
+                <span class="tier-title">Middle Notes</span>
+                <span class="tier-desc">Heart of the scent</span>
+              </div>
+              <div class="tag-list">
+                <template v-if="viewingScent?.middleNotes">
+                  <span v-for="note in viewingScent.middleNotes.split(',')" :key="note" class="tag tag-middle">{{ note.trim() }}</span>
+                </template>
+                <span v-else class="tag-empty">—</span>
+              </div>
+            </div>
+
+            <div class="pyramid-tier base-tier">
+              <div class="tier-header">
+                <span class="tier-dot base-dot"></span>
+                <span class="tier-title">Base Notes</span>
+                <span class="tier-desc">Lasting foundation</span>
+              </div>
+              <div class="tag-list">
+                <template v-if="viewingScent?.baseNotes">
+                  <span v-for="note in viewingScent.baseNotes.split(',')" :key="note" class="tag tag-base">{{ note.trim() }}</span>
+                </template>
+                <span v-else class="tag-empty">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Meta info -->
+          <div class="view-meta">
+            <div v-if="viewingScent?.essentialOils" class="view-meta-row">
+              <span class="view-meta-label">Essential Oils</span>
+              <span class="view-meta-value">{{ viewingScent.essentialOils }}</span>
+            </div>
+            <div class="view-meta-row">
+              <span class="view-meta-label">Created By</span>
+              <span class="view-meta-value">{{ viewingScent?.createdBy }}</span>
+            </div>
+            <div class="view-meta-row">
+              <span class="view-meta-label">Date Added</span>
+              <span class="view-meta-value">{{ viewingScent?.createdAt }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -126,6 +215,8 @@ const scentStore = useScentStore()
 const searchQuery = ref('')
 const sortBy = ref('name-asc')
 const scentModalOpen = ref(false)
+const viewModalOpen = ref(false)
+const viewingScent = ref(null)
 const confirmDialogOpen = ref(false)
 const bulkDeleteConfirmOpen = ref(false)
 const selectedScent = ref(null)
@@ -186,8 +277,8 @@ const openDeleteConfirm = (scent) => {
 }
 
 const viewScent = (scent) => {
-  console.log('View details:', scent)
-  // Can expand to show a detail view modal later
+  viewingScent.value = scent
+  viewModalOpen.value = true
 }
 
 const handleScentSubmit = async (data) => {
@@ -359,7 +450,7 @@ const handleBulkDeleteScents = async () => {
 .table-container {
   background: white;
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -400,12 +491,29 @@ const handleBulkDeleteScents = async () => {
 }
 
 .notes {
-  color: #666;
-  font-size: 13px;
-  max-width: 200px;
+  max-width: 140px;
+}
+
+.note-pill {
+  display: inline-block;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 130px;
+  vertical-align: middle;
+}
+
+.pill-top    { background: #FFF3CD; color: #856404; }
+.pill-middle { background: #F8D7DA; color: #842029; }
+.pill-base   { background: #D1E7DD; color: #0A3622; }
+
+.note-empty {
+  color: #ccc;
+  font-size: 13px;
 }
 
 .created-by {
@@ -446,6 +554,167 @@ const handleBulkDeleteScents = async () => {
   padding: 60px 20px;
   text-align: center;
   color: #999;
+}
+
+/* ── View Modal ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.view-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.view-modal-subtitle {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #aaa;
+}
+
+.view-modal-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 26px;
+  cursor: pointer;
+  color: #bbb;
+  line-height: 1;
+  padding: 0;
+}
+
+.close-btn:hover { color: #333; }
+
+.view-modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Pyramid tiers */
+.pyramid-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pyramid-tier {
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.top-tier    { background: #FFFBEB; border: 1px solid #FDE68A; }
+.middle-tier { background: #FFF1F2; border: 1px solid #FECDD3; }
+.base-tier   { background: #F0FDF4; border: 1px solid #BBF7D0; }
+
+.tier-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tier-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.top-dot    { background: #F59E0B; }
+.middle-dot { background: #F43F5E; }
+.base-dot   { background: #10B981; }
+
+.tier-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #333;
+}
+
+.tier-desc {
+  font-size: 11px;
+  color: #aaa;
+  margin-left: auto;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.tag-top    { background: #FEF3C7; color: #92400E; }
+.tag-middle { background: #FFE4E6; color: #9F1239; }
+.tag-base   { background: #DCFCE7; color: #14532D; }
+
+.tag-empty {
+  font-size: 13px;
+  color: #ccc;
+}
+
+/* Meta section */
+.view-meta {
+  border-top: 1px solid #f0f0f0;
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.view-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.view-meta-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.view-meta-value {
+  font-size: 13px;
+  color: #555;
 }
 
 @media (max-width: 768px) {
