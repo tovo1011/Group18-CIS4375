@@ -5,9 +5,10 @@ Update these values based on your database setup
 
 class Creds:
     # MySQL Configuration
-    host = "cis4375spring26db2.c92e4wii2y91.us-east-2.rds.amazonaws.com"
-    user = "admin"
-    password = "ihatesql$%"
+    # host = "cis4375spring26db2.c92e4wii2y91.us-east-2.rds.amazonaws.com"
+    host = "18.116.171.249"
+    user = "t4admin"
+    password = "T4Scents_2026_Secure!"
     database = "perfume_store"
     
     # Flask Configuration
