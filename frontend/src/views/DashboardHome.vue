@@ -24,7 +24,7 @@
         <p class="st-delta">Active formulas</p>
       </div>
       <div class="stat-tile">
-        <p class="st-label">Ingredients</p>
+        <p class="st-label">Essential Oils</p>
         <p class="st-val">{{ totalIngredients }}</p>
         <p class="st-delta">In library</p>
       </div>
@@ -50,7 +50,7 @@
             <span class="abt-icon">+</span> New Scent Formula
           </button>
           <button v-if="canEdit" class="action-row-btn" @click="router.push('/ingredients')">
-            <span class="abt-icon">+</span> Add Ingredient
+            <span class="abt-icon">+</span> Add Essential Oil
           </button>
           <button v-if="canEdit" class="action-row-btn" @click="router.push('/suppliers')">
             <span class="abt-icon">+</span> Add Supplier
@@ -99,7 +99,7 @@
         <div class="step">
           <div class="step-num">2</div>
           <div>
-            <p class="step-h">Manage Ingredients</p>
+            <p class="step-h">Manage Essential Oils</p>
             <p class="step-p">Organize all your fragrance components and costs.</p>
           </div>
         </div>
@@ -134,19 +134,19 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useScentStore } from '../stores/scents'
-import { useIngredientStore } from '../stores/ingredients'
+import { useEssentialOilStore } from '../stores/essential-oils'
 import { useSupplierStore } from '../stores/suppliers'
 import { useAuditStore } from '../stores/audit'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const scentStore = useScentStore()
-const ingredientStore = useIngredientStore()
+const essentialOilStore = useEssentialOilStore()
 const supplierStore = useSupplierStore()
 const auditStore = useAuditStore()
 
 const totalScents = computed(() => scentStore.scents.filter(s => !s.archivedAt).length)
-const totalIngredients = computed(() => ingredientStore.ingredients.length)
+const totalIngredients = computed(() => essentialOilStore.oils.length)
 const totalSuppliers = computed(() => supplierStore.suppliers.length)
 const recentActivities = computed(() => auditStore.auditLogs.length)
 const canEdit = computed(() => ['admin', 'manager'].includes(authStore.user?.role))
