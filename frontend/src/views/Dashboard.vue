@@ -64,6 +64,7 @@ const menuItems = computed(() => {
     { name: 'scents',        label: 'Scent Library',   route: '/scents' },
     { name: 'oils',          label: 'Essential Oils',  route: '/oils' },
 
+    { name: 'pos',           label: 'Point of Sale',   route: '/pos' },
     { name: 'suppliers',     label: 'Suppliers',       route: '/suppliers' },
     { name: 'import-export', label: 'Import / Export', route: '/import-export' },
   ]

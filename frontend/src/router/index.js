@@ -8,6 +8,7 @@ import EssentialOilsView from '../views/EssentialOilsView.vue'
 import SuppliersView from '../views/SuppliersView.vue'
 import AuditLogs from '../views/AuditLogs.vue'
 import ImportExport from '../views/ImportExport.vue'
+import POSView from '../views/POSView.vue'
 
 const routes = [
   {
@@ -28,6 +29,7 @@ const routes = [
       { path: 'scents',       name: 'ScentLibrary', component: ScentLibrary },
       { path: 'oils',         name: 'EssentialOils', component: EssentialOilsView },
       { path: 'suppliers',    name: 'Suppliers',    component: SuppliersView },
+      { path: 'pos',           name: 'POS',          component: POSView },
       { path: 'import-export', name: 'ImportExport', component: ImportExport },
       {
         path: 'audit-logs',

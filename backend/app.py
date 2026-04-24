@@ -1117,6 +1117,164 @@ def import_data(current_user):
     except Exception as e:
         return jsonify({'message': f'Import failed: {str(e)}'}), 400
 
+# ==================== POS Routes ====================
+
+@app.route('/api/pos/products', methods=['GET'])
+@token_required
+def pos_get_products(current_user):
+    """Return all products for the POS product grid"""
+    db_conn = get_db_connection()
+    query = """
+    SELECT p.product_ID, p.product_name, p.product_type, p.price, s.name as scent_name
+    FROM Products p
+    LEFT JOIN Scents s ON p.id = s.id
+    WHERE s.archived_at IS NULL OR s.archived_at IS NULL
+    ORDER BY p.product_type, p.product_name
+    """
+    products = execute_read_query(db_conn, query)
+    return jsonify([{
+        'id': p['product_ID'],
+        'name': p['product_name'],
+        'type': p['product_type'],
+        'price': float(p['price']),
+        'scentName': p.get('scent_name', '')
+    } for p in products]), 200
+
+
+@app.route('/api/pos/orders', methods=['POST'])
+@token_required
+def pos_create_order(current_user):
+    """Create a POS order. Prices are fetched from DB — never trusted from client."""
+    db_conn = get_db_connection()
+    data = request.get_json()
+
+    items = data.get('items', [])
+    if not items:
+        return jsonify({'message': 'Order must have at least one item'}), 400
+
+    payment_method = data.get('payment_method', 'cash')
+    cash_tendered = data.get('cash_tendered')
+    event_name = data.get('event_name', '')
+    event_date = data.get('event_date')
+
+    # Fetch prices from DB for each product
+    line_items = []
+    total = 0.0
+    for item in items:
+        pid = item.get('product_id')
+        qty = int(item.get('quantity', 1))
+        row = execute_read_query(db_conn, "SELECT * FROM Products WHERE product_ID = %s", (pid,))
+        if not row:
+            return jsonify({'message': f'Product {pid} not found'}), 404
+        unit_price = float(row[0]['price'])
+        line_items.append({'product_id': pid, 'quantity': qty, 'unit_price': unit_price})
+        total += unit_price * qty
+
+    change_due = None
+    if payment_method == 'cash' and cash_tendered is not None:
+        change_due = round(float(cash_tendered) - total, 2)
+        if change_due < 0:
+            return jsonify({'message': 'Cash tendered is less than total'}), 400
+
+    # Insert Order
+    order_query = """
+    INSERT INTO `Order` (customer_ID, order_date, total_amount, order_status,
+                         payment_method, cash_tendered, change_due, event_name, event_date)
+    VALUES (NULL, CURRENT_TIMESTAMP, %s, 'completed', %s, %s, %s, %s, %s)
+    """
+    execute_query(db_conn, order_query, (
+        round(total, 2), payment_method, cash_tendered, change_due, event_name, event_date
+    ))
+
+    # Get new order ID
+    order_row = execute_read_query(db_conn, "SELECT LAST_INSERT_ID() as id")
+    order_id = order_row[0]['id']
+
+    # Insert Order_Item rows
+    for li in line_items:
+        execute_query(db_conn,
+            "INSERT INTO Order_Item (order_ID, product_ID, quantity, unit_price) VALUES (%s, %s, %s, %s)",
+            (order_id, li['product_id'], li['quantity'], li['unit_price'])
+        )
+
+    log_audit(current_user['UserID'], 'CREATE', 'Order', order_id)
+
+    return jsonify({
+        'orderId': order_id,
+        'total': round(total, 2),
+        'changeDue': change_due,
+        'paymentMethod': payment_method,
+        'eventName': event_name
+    }), 201
+
+
+@app.route('/api/pos/orders', methods=['GET'])
+@token_required
+def pos_list_orders(current_user):
+    """List recent POS orders (last 100)"""
+    db_conn = get_db_connection()
+    query = """
+    SELECT o.order_ID, o.order_date, o.total_amount, o.order_status,
+           o.payment_method, o.cash_tendered, o.change_due, o.event_name, o.event_date
+    FROM `Order` o
+    ORDER BY o.order_date DESC
+    LIMIT 100
+    """
+    orders = execute_read_query(db_conn, query)
+    return jsonify([{
+        'id': o['order_ID'],
+        'date': o['order_date'],
+        'total': float(o['total_amount']) if o['total_amount'] else 0,
+        'status': o['order_status'],
+        'paymentMethod': o['payment_method'],
+        'cashTendered': float(o['cash_tendered']) if o['cash_tendered'] else None,
+        'changeDue': float(o['change_due']) if o['change_due'] else None,
+        'eventName': o['event_name'],
+        'eventDate': o['event_date']
+    } for o in orders]), 200
+
+
+@app.route('/api/pos/orders/<int:order_id>', methods=['GET'])
+@token_required
+def pos_get_order(current_user, order_id):
+    """Get a single order with its line items"""
+    db_conn = get_db_connection()
+    order_rows = execute_read_query(db_conn,
+        "SELECT * FROM `Order` WHERE order_ID = %s", (order_id,))
+    if not order_rows:
+        return jsonify({'message': 'Order not found'}), 404
+    o = order_rows[0]
+
+    items_query = """
+    SELECT oi.*, p.product_name, p.product_type
+    FROM Order_Item oi
+    LEFT JOIN Products p ON oi.product_ID = p.product_ID
+    WHERE oi.order_ID = %s
+    """
+    items = execute_read_query(db_conn, items_query, (order_id,))
+
+    return jsonify({
+        'id': o['order_ID'],
+        'date': o['order_date'],
+        'total': float(o['total_amount']) if o['total_amount'] else 0,
+        'status': o['order_status'],
+        'paymentMethod': o['payment_method'],
+        'cashTendered': float(o['cash_tendered']) if o['cash_tendered'] else None,
+        'changeDue': float(o['change_due']) if o['change_due'] else None,
+        'eventName': o['event_name'],
+        'eventDate': o['event_date'],
+        'items': [{
+            'id': i['orderitem_ID'],
+            'productId': i['product_ID'],
+            'productName': i['product_name'],
+            'productType': i['product_type'],
+            'quantity': i['quantity'],
+            'unitPrice': float(i['unit_price']) if i['unit_price'] else 0,
+            'lineTotal': float(i['unit_price']) * i['quantity'] if i['unit_price'] else 0
+        } for i in items]
+    }), 200
+
+
 # ==================== Error Handlers ====================
 
 @app.errorhandler(404)

@@ -57,7 +57,7 @@ CREATE TABLE Products (
     id INT NOT NULL,
     product_name VARCHAR(100) NOT NULL,
     product_type VARCHAR(100) NOT NULL,
-    price INT NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
     FOREIGN KEY (id) REFERENCES Scents(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -98,7 +98,7 @@ CREATE TABLE `Order` (
     order_ID INT AUTO_INCREMENT PRIMARY KEY,
     customer_ID INT,
     order_date DATETIME,
-    total_amount INT,
+    total_amount DECIMAL(10,2),
     order_status VARCHAR(50),
     FOREIGN KEY (customer_ID) REFERENCES Customers(Customer_ID)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -108,5 +108,15 @@ CREATE TABLE Order_Item (
     order_ID INT,
     product_ID INT,
     quantity INT,
-    unit_price INT
+    unit_price DECIMAL(10,2)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- POS support: run these ALTER statements on an existing DB
+-- ALTER TABLE `Order` MODIFY total_amount DECIMAL(10,2) NOT NULL;
+-- ALTER TABLE `Order` ADD COLUMN payment_method VARCHAR(20) NOT NULL DEFAULT 'cash';
+-- ALTER TABLE `Order` ADD COLUMN cash_tendered  DECIMAL(10,2) NULL;
+-- ALTER TABLE `Order` ADD COLUMN change_due     DECIMAL(10,2) NULL;
+-- ALTER TABLE `Order` ADD COLUMN event_name     VARCHAR(100)  NULL;
+-- ALTER TABLE `Order` ADD COLUMN event_date     DATE          NULL;
+-- ALTER TABLE Order_Item MODIFY unit_price DECIMAL(10,2);
+-- ALTER TABLE Products   MODIFY price     DECIMAL(10,2) NOT NULL;
