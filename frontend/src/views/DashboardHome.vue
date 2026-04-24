@@ -40,6 +40,22 @@
       </div>
     </div>
 
+    <!-- Charts Row -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3 class="chart-title">Oils per Supplier</h3>
+        <Bar :data="oilsPerSupplierData" :options="barOptions" />
+      </div>
+      <div class="chart-card">
+        <h3 class="chart-title">Activity Breakdown</h3>
+        <Doughnut :data="auditActionData" :options="donutOptions" />
+      </div>
+      <div class="chart-card">
+        <h3 class="chart-title">Avg Oil Cost by Supplier</h3>
+        <Bar :data="avgCostData" :options="horizontalBarOptions" />
+      </div>
+    </div>
+
     <!-- Cards row -->
     <div class="cards-row">
       <!-- Quick Actions -->
@@ -130,13 +146,20 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { Bar, Doughnut } from 'vue-chartjs'
+import {
+  Chart as ChartJS, Title, Tooltip, Legend,
+  BarElement, ArcElement, CategoryScale, LinearScale
+} from 'chart.js'
 import { useAuthStore } from '../stores/auth'
 import { useScentStore } from '../stores/scents'
 import { useEssentialOilStore } from '../stores/essential-oils'
 import { useSupplierStore } from '../stores/suppliers'
 import { useAuditStore } from '../stores/audit'
+
+ChartJS.register(Title, Tooltip, Legend, BarElement, ArcElement, CategoryScale, LinearScale)
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -145,12 +168,70 @@ const essentialOilStore = useEssentialOilStore()
 const supplierStore = useSupplierStore()
 const auditStore = useAuditStore()
 
+onMounted(async () => {
+  if (!scentStore.scents.length) await scentStore.fetchScents()
+  if (!essentialOilStore.oils.length) await essentialOilStore.fetchOils()
+  if (!supplierStore.suppliers.length) await supplierStore.fetchSuppliers()
+  if (!auditStore.auditLogs.length) await auditStore.fetchAuditLogs()
+})
+
 const totalScents = computed(() => scentStore.scents.filter(s => !s.archivedAt).length)
 const totalIngredients = computed(() => essentialOilStore.oils.length)
 const totalSuppliers = computed(() => supplierStore.suppliers.length)
 const recentActivities = computed(() => auditStore.auditLogs.length)
 const canEdit = computed(() => ['admin', 'manager'].includes(authStore.user?.role))
 const isAdmin = computed(() => authStore.user?.role === 'admin')
+
+// Chart 1: oils per supplier
+const oilsPerSupplierData = computed(() => {
+  const counts = {}
+  essentialOilStore.oils.forEach(o => {
+    const key = o.supplierName || 'Unknown'
+    counts[key] = (counts[key] || 0) + 1
+  })
+  return {
+    labels: Object.keys(counts),
+    datasets: [{ label: 'Oils', data: Object.values(counts), backgroundColor: '#8B6B4A' }]
+  }
+})
+
+// Chart 2: audit log action breakdown
+const auditActionData = computed(() => {
+  const counts = { CREATE: 0, UPDATE: 0, DELETE: 0 }
+  auditStore.auditLogs.forEach(l => {
+    if (counts[l.action] !== undefined) counts[l.action]++
+  })
+  return {
+    labels: ['Create', 'Update', 'Delete'],
+    datasets: [{
+      data: Object.values(counts),
+      backgroundColor: ['#4caf50', '#C49A3C', '#c0392b']
+    }]
+  }
+})
+
+// Chart 3: average unit cost per supplier
+const avgCostData = computed(() => {
+  const totals = {}, counts2 = {}
+  essentialOilStore.oils.forEach(o => {
+    const key = o.supplierName || 'Unknown'
+    totals[key] = (totals[key] || 0) + (o.unitCost || 0)
+    counts2[key] = (counts2[key] || 0) + 1
+  })
+  const labels = Object.keys(totals)
+  return {
+    labels,
+    datasets: [{
+      label: 'Avg Cost ($)',
+      data: labels.map(l => +(totals[l] / counts2[l]).toFixed(2)),
+      backgroundColor: '#5C4A3A'
+    }]
+  }
+})
+
+const barOptions = { responsive: true, plugins: { legend: { display: false } } }
+const horizontalBarOptions = { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+const donutOptions = { responsive: true, plugins: { legend: { position: 'bottom' } } }
 </script>
 
 <style scoped>
@@ -186,6 +267,19 @@ const isAdmin = computed(() => authStore.user?.role === 'admin')
 .st-label { font-size: 10px; font-weight: 700; color: var(--brown-lt); letter-spacing: 0.10em; text-transform: uppercase; margin: 0 0 6px; }
 .st-val { font-size: 30px; font-weight: 700; color: var(--brown); line-height: 1; margin: 0 0 4px; }
 .st-delta { font-size: 11px; color: var(--gold-dk); font-weight: 500; margin: 0; }
+
+/* Charts row */
+.charts-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px;
+}
+.chart-card {
+  background: var(--white); border-radius: 12px; padding: 18px 20px;
+  border: 1px solid var(--cream-mid);
+}
+.chart-title {
+  font-size: 11px; font-weight: 700; color: var(--brown);
+  letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 14px;
+}
 
 /* Cards row */
 .cards-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
@@ -243,6 +337,7 @@ const isAdmin = computed(() => authStore.user?.role === 'admin')
 
 @media (max-width: 900px) {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .charts-row { grid-template-columns: 1fr; }
   .cards-row { grid-template-columns: 1fr; }
   .steps-grid { grid-template-columns: 1fr; }
 }
