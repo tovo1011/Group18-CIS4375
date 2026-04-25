@@ -9,6 +9,8 @@ import SuppliersView from '../views/SuppliersView.vue'
 import AuditLogs from '../views/AuditLogs.vue'
 import ImportExport from '../views/ImportExport.vue'
 import POSView from '../views/POSView.vue'
+import ProductsView from '../views/ProductsView.vue'
+import SalesHistoryView from '../views/SalesHistoryView.vue'
 
 const routes = [
   {
@@ -30,6 +32,8 @@ const routes = [
       { path: 'oils',         name: 'EssentialOils', component: EssentialOilsView },
       { path: 'suppliers',    name: 'Suppliers',    component: SuppliersView },
       { path: 'pos',           name: 'POS',          component: POSView },
+      { path: 'products',      name: 'Products',     component: ProductsView },
+      { path: 'sales',         name: 'SalesHistory', component: SalesHistoryView },
       { path: 'import-export', name: 'ImportExport', component: ImportExport },
       {
         path: 'audit-logs',

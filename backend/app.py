@@ -4,10 +4,13 @@ Flask-based REST API with authentication, suppliers, ingredients, scents, and au
 """
 
 import flask
-from flask import jsonify, request
+from flask import jsonify, request, send_from_directory
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
 import jwt
+import os
+import uuid
 from datetime import datetime, timedelta
 from functools import wraps
 
@@ -20,6 +23,13 @@ app.config["debug"] = Creds.DEBUG
 
 # Initialize CORS for frontend integration
 CORS(app)
+
+# Product image upload configuration
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads', 'products')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Initialize database connection
 conn = create_connection()
@@ -1137,7 +1147,8 @@ def pos_get_products(current_user):
         'name': p['product_name'],
         'type': p['product_type'],
         'price': float(p['price']),
-        'scentName': p.get('scent_name', '')
+        'scentName': p.get('scent_name', ''),
+        'image': f"/uploads/products/{p['image_path']}" if p.get('image_path') else None
     } for p in products]), 200
 
 
@@ -1156,6 +1167,18 @@ def pos_create_order(current_user):
     cash_tendered = data.get('cash_tendered')
     event_name = data.get('event_name', '')
     event_date = data.get('event_date')
+    customer_name = data.get('customer_name', '').strip() if data.get('customer_name') else None
+
+    # Resolve customer ID from name (create if new)
+    customer_id = None
+    if customer_name:
+        existing = execute_read_query(db_conn, "SELECT Customer_ID FROM Customers WHERE first_name = %s LIMIT 1", (customer_name,))
+        if existing:
+            customer_id = existing[0]['Customer_ID']
+        else:
+            execute_query(db_conn, "INSERT INTO Customers (first_name) VALUES (%s)", (customer_name,))
+            row = execute_read_query(db_conn, "SELECT LAST_INSERT_ID() as id")
+            customer_id = row[0]['id']
 
     # Fetch prices from DB for each product
     line_items = []
@@ -1180,10 +1203,10 @@ def pos_create_order(current_user):
     order_query = """
     INSERT INTO `Order` (customer_ID, order_date, total_amount, order_status,
                          payment_method, cash_tendered, change_due, event_name, event_date)
-    VALUES (NULL, CURRENT_TIMESTAMP, %s, 'completed', %s, %s, %s, %s, %s)
+    VALUES (%s, CURRENT_TIMESTAMP, %s, 'completed', %s, %s, %s, %s, %s)
     """
     execute_query(db_conn, order_query, (
-        round(total, 2), payment_method, cash_tendered, change_due, event_name, event_date
+        customer_id, round(total, 2), payment_method, cash_tendered, change_due, event_name, event_date
     ))
 
     # Get new order ID
@@ -1273,6 +1296,215 @@ def pos_get_order(current_user, order_id):
             'lineTotal': float(i['unit_price']) * i['quantity'] if i['unit_price'] else 0
         } for i in items]
     }), 200
+
+
+# ==================== Products CRUD ====================
+
+@app.route('/uploads/products/<path:filename>')
+def serve_product_image(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+
+@app.route('/api/products', methods=['GET'])
+@token_required
+def get_products(current_user):
+    db_conn = get_db_connection()
+    query = """
+    SELECT p.product_ID, p.product_name, p.product_type, p.price,
+           p.description, p.image_path, s.name as scent_name, p.id as scent_id
+    FROM Products p
+    LEFT JOIN Scents s ON p.id = s.id
+    ORDER BY p.product_type, p.product_name
+    """
+    products = execute_read_query(db_conn, query)
+    return jsonify([{
+        'id': p['product_ID'],
+        'name': p['product_name'],
+        'type': p['product_type'],
+        'price': float(p['price']),
+        'description': p.get('description', ''),
+        'scentId': p.get('scent_id'),
+        'scentName': p.get('scent_name', ''),
+        'image': f"/uploads/products/{p['image_path']}" if p.get('image_path') else None
+    } for p in products]), 200
+
+
+@app.route('/api/products', methods=['POST'])
+@token_required
+def create_product(current_user):
+    if current_user.get('UserRole') not in ('admin', 'manager'):
+        return jsonify({'message': 'Insufficient permissions'}), 403
+
+    db_conn = get_db_connection()
+    product_name = request.form.get('product_name', '').strip()
+    product_type = request.form.get('product_type', '').strip()
+    price = request.form.get('price')
+    scent_id = request.form.get('scent_id') or None
+    description = request.form.get('description', '').strip()
+
+    if not product_name or not product_type or not price:
+        return jsonify({'message': 'Name, type, and price are required'}), 400
+
+    image_path = None
+    if 'image' in request.files:
+        file = request.files['image']
+        if file and file.filename and allowed_file(file.filename):
+            ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
+            filename = f"{uuid.uuid4().hex}.{ext}"
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            file.save(os.path.join(UPLOAD_FOLDER, filename))
+            image_path = filename
+
+    product_id = uuid.uuid4().hex[:12]
+    query = """
+    INSERT INTO Products (product_ID, id, product_name, product_type, price, description, image_path)
+    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    """
+    execute_query(db_conn, query, (product_id, scent_id, product_name, product_type, float(price), description, image_path))
+
+    log_audit(current_user['UserID'], 'CREATE', 'Products', product_id)
+
+    return jsonify({
+        'id': product_id,
+        'name': product_name,
+        'type': product_type,
+        'price': float(price),
+        'description': description,
+        'scentId': scent_id,
+        'scentName': '',
+        'image': f"/uploads/products/{image_path}" if image_path else None
+    }), 201
+
+
+@app.route('/api/products/<product_id>', methods=['PUT'])
+@token_required
+def update_product(current_user, product_id):
+    if current_user.get('UserRole') not in ('admin', 'manager'):
+        return jsonify({'message': 'Insufficient permissions'}), 403
+
+    db_conn = get_db_connection()
+    rows = execute_read_query(db_conn, "SELECT * FROM Products WHERE product_ID = %s", (product_id,))
+    if not rows:
+        return jsonify({'message': 'Product not found'}), 404
+
+    p = rows[0]
+    product_name = request.form.get('product_name', p['product_name']).strip()
+    product_type = request.form.get('product_type', p['product_type']).strip()
+    price = request.form.get('price', p['price'])
+    scent_id = request.form.get('scent_id') or None
+    description = request.form.get('description', p.get('description', '') or '').strip()
+
+    image_path = p.get('image_path')
+    if 'image' in request.files:
+        file = request.files['image']
+        if file and file.filename and allowed_file(file.filename):
+            # Remove old image if it exists
+            if image_path:
+                old_path = os.path.join(UPLOAD_FOLDER, image_path)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+            ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
+            filename = f"{uuid.uuid4().hex}.{ext}"
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            file.save(os.path.join(UPLOAD_FOLDER, filename))
+            image_path = filename
+
+    execute_query(db_conn, """
+        UPDATE Products SET product_name=%s, product_type=%s, price=%s,
+        id=%s, description=%s, image_path=%s WHERE product_ID=%s
+    """, (product_name, product_type, float(price), scent_id, description, image_path, product_id))
+
+    log_audit(current_user['UserID'], 'UPDATE', 'Products', product_id)
+
+    # Fetch updated row with scent name
+    updated = execute_read_query(db_conn, """
+        SELECT p.*, s.name as scent_name FROM Products p
+        LEFT JOIN Scents s ON p.id = s.id WHERE p.product_ID = %s
+    """, (product_id,))
+    u = updated[0]
+    return jsonify({
+        'id': u['product_ID'],
+        'name': u['product_name'],
+        'type': u['product_type'],
+        'price': float(u['price']),
+        'description': u.get('description', ''),
+        'scentId': u.get('id'),
+        'scentName': u.get('scent_name', ''),
+        'image': f"/uploads/products/{u['image_path']}" if u.get('image_path') else None
+    }), 200
+
+
+@app.route('/api/products/<product_id>', methods=['DELETE'])
+@token_required
+def delete_product(current_user, product_id):
+    if current_user.get('UserRole') != 'admin':
+        return jsonify({'message': 'Insufficient permissions'}), 403
+
+    db_conn = get_db_connection()
+    rows = execute_read_query(db_conn, "SELECT * FROM Products WHERE product_ID = %s", (product_id,))
+    if not rows:
+        return jsonify({'message': 'Product not found'}), 404
+
+    # Remove image file if it exists
+    image_path = rows[0].get('image_path')
+    if image_path:
+        full_path = os.path.join(UPLOAD_FOLDER, image_path)
+        if os.path.exists(full_path):
+            os.remove(full_path)
+
+    execute_query(db_conn, "DELETE FROM Products WHERE product_ID = %s", (product_id,))
+    log_audit(current_user['UserID'], 'DELETE', 'Products', product_id)
+
+    return jsonify({'message': 'Product deleted'}), 200
+
+
+# ==================== Sales History ====================
+
+@app.route('/api/sales', methods=['GET'])
+@token_required
+def get_sales(current_user):
+    db_conn = get_db_connection()
+    start = request.args.get('start')
+    end = request.args.get('end')
+    method = request.args.get('method')
+
+    conditions = []
+    params = []
+    if start:
+        conditions.append("o.order_date >= %s")
+        params.append(start)
+    if end:
+        conditions.append("o.order_date <= %s")
+        params.append(end + ' 23:59:59')
+    if method and method != 'all':
+        conditions.append("o.payment_method = %s")
+        params.append(method)
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    query = f"""
+    SELECT o.order_ID, o.order_date, o.total_amount, o.payment_method,
+           o.event_name, o.event_date, c.first_name as customer_name,
+           GROUP_CONCAT(p.product_name ORDER BY p.product_name SEPARATOR ', ') as items
+    FROM `Order` o
+    LEFT JOIN Customers c ON o.customer_ID = c.Customer_ID
+    LEFT JOIN Order_Item oi ON o.order_ID = oi.order_ID
+    LEFT JOIN Products p ON oi.product_ID = p.product_ID
+    {where}
+    GROUP BY o.order_ID
+    ORDER BY o.order_date DESC
+    LIMIT 500
+    """
+    orders = execute_read_query(db_conn, query, tuple(params) if params else None)
+    return jsonify([{
+        'id': o['order_ID'],
+        'date': str(o['order_date']) if o['order_date'] else None,
+        'total': float(o['total_amount']) if o['total_amount'] else 0,
+        'paymentMethod': o['payment_method'],
+        'eventName': o.get('event_name', ''),
+        'customerName': o.get('customer_name', ''),
+        'items': o.get('items', '')
+    } for o in orders]), 200
 
 
 # ==================== Error Handlers ====================

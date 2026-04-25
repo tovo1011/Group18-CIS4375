@@ -111,6 +111,11 @@ CREATE TABLE Order_Item (
     unit_price DECIMAL(10,2)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Products image + description support: run these ALTER statements on an existing DB
+-- ALTER TABLE Products MODIFY id INT NULL;
+-- ALTER TABLE Products ADD COLUMN image_path VARCHAR(255) NULL;
+-- ALTER TABLE Products ADD COLUMN description VARCHAR(500) NULL;
+
 -- POS support: run these ALTER statements on an existing DB
 -- ALTER TABLE `Order` MODIFY total_amount DECIMAL(10,2) NOT NULL;
 -- ALTER TABLE `Order` ADD COLUMN payment_method VARCHAR(20) NOT NULL DEFAULT 'cash';

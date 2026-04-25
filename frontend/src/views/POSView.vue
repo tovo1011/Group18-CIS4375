@@ -78,6 +78,11 @@
         </div>
 
         <div class="form-group">
+          <label>Customer Name <span class="optional">(optional)</span></label>
+          <input v-model="checkoutForm.customerName" type="text" placeholder="e.g. Jane Smith" class="text-input" />
+        </div>
+
+        <div class="form-group">
           <label>Event Name <span class="optional">(optional)</span></label>
           <input v-model="checkoutForm.eventName" type="text" placeholder="e.g. Heights Farmers Market" class="text-input" />
         </div>
@@ -130,6 +135,7 @@
                 class="product-card"
                 @click="posStore.addToCart(p)"
               >
+                <img v-if="p.image" :src="backendBase + p.image" class="product-thumb" :alt="p.name" />
                 <span class="product-name">{{ p.name }}</span>
                 <span class="product-price">${{ fmt(p.price) }}</span>
               </button>
@@ -184,6 +190,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { usePOSStore } from '../stores/pos'
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const backendBase = API_URL.replace('/api', '')
+
 const posStore = usePOSStore()
 const search = ref('')
 const showCheckout = ref(false)
@@ -192,6 +201,7 @@ const receipt = ref(null)
 const checkoutForm = ref({
   paymentMethod: 'cash',
   cashTendered: '',
+  customerName: '',
   eventName: '',
   eventDate: new Date().toISOString().slice(0, 10)
 })
@@ -248,6 +258,7 @@ function setQuickCash(amt) {
 
 function openCheckout() {
   checkoutForm.value.cashTendered = ''
+  checkoutForm.value.customerName = ''
   posStore.error = null
   showCheckout.value = true
 }
@@ -257,6 +268,7 @@ async function submitOrder() {
     const result = await posStore.submitOrder({
       paymentMethod: checkoutForm.value.paymentMethod,
       cashTendered: checkoutForm.value.paymentMethod === 'cash' ? checkoutForm.value.cashTendered : null,
+      customerName: checkoutForm.value.customerName || null,
       eventName: checkoutForm.value.eventName,
       eventDate: checkoutForm.value.eventDate
     })
@@ -310,6 +322,7 @@ onMounted(() => posStore.fetchProducts())
 }
 .product-card:hover { border-color: var(--gold); background: var(--cream); }
 .product-card:active { transform: scale(0.97); }
+.product-thumb { width: 100%; height: 72px; object-fit: cover; border-radius: 6px; margin-bottom: 4px; }
 .product-name { font-size: 13px; font-weight: 600; color: var(--brown); }
 .product-price { font-size: 12px; color: var(--brown-lt); }
 

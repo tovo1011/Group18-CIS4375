@@ -60,7 +60,7 @@ export const usePOSStore = defineStore('pos', () => {
     cart.value = []
   }
 
-  async function submitOrder({ paymentMethod, cashTendered, eventName, eventDate }) {
+  async function submitOrder({ paymentMethod, cashTendered, customerName, eventName, eventDate }) {
     loading.value = true
     error.value = null
     try {
@@ -68,6 +68,7 @@ export const usePOSStore = defineStore('pos', () => {
         items: cart.value.map(i => ({ product_id: i.id, quantity: i.quantity })),
         payment_method: paymentMethod,
         cash_tendered: cashTendered ? parseFloat(cashTendered) : null,
+        customer_name: customerName || null,
         event_name: eventName || '',
         event_date: eventDate || null
       })

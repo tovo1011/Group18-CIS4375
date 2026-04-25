@@ -141,10 +141,12 @@ def init_db_schema(connection):
         ("Products", """
         CREATE TABLE IF NOT EXISTS Products (
             product_ID VARCHAR(50) PRIMARY KEY,
-            id INT NOT NULL,
+            id INT NULL,
             product_name VARCHAR(100) NOT NULL,
             product_type VARCHAR(100) NOT NULL,
-            price INT NOT NULL,
+            price DECIMAL(10,2) NOT NULL,
+            image_path VARCHAR(255) NULL,
+            description VARCHAR(500) NULL,
             FOREIGN KEY (id) REFERENCES Scents(id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         """),
@@ -166,7 +168,7 @@ def init_db_schema(connection):
             UserID INT NOT NULL,
             AuditAction VARCHAR(50) NOT NULL,
             TableName VARCHAR(50) NOT NULL,
-            RecordID INT,
+            RecordID VARCHAR(50),
             old_Value TEXT,
             new_value TEXT,
             IP_address VARCHAR(50),
@@ -203,9 +205,9 @@ def init_db_schema(connection):
         CREATE TABLE IF NOT EXISTS Order_Item (
             orderitem_ID INT AUTO_INCREMENT PRIMARY KEY,
             order_ID INT,
-            product_ID INT,
+            product_ID VARCHAR(50),
             quantity INT,
-            unit_price INT
+            unit_price DECIMAL(10,2)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         """),
     ]
