@@ -1507,6 +1507,77 @@ def get_sales(current_user):
     } for o in orders]), 200
 
 
+# ==================== Products & Sales Export ====================
+
+@app.route('/api/export/products', methods=['GET'])
+@token_required
+def export_products(current_user):
+    """Export all products as JSON (for CSV download in frontend)"""
+    db_conn = get_db_connection()
+    query = """
+    SELECT p.product_ID, p.product_name, p.product_type, p.price,
+           p.description, s.name as scent_name
+    FROM Products p
+    LEFT JOIN Scents s ON p.id = s.id
+    ORDER BY p.product_type, p.product_name
+    """
+    products = execute_read_query(db_conn, query)
+    return jsonify([{
+        'id': p['product_ID'],
+        'name': p['product_name'],
+        'type': p['product_type'],
+        'price': float(p['price']),
+        'description': p.get('description', ''),
+        'scentName': p.get('scent_name', '')
+    } for p in products]), 200
+
+
+@app.route('/api/export/sales', methods=['GET'])
+@token_required
+def export_sales(current_user):
+    """Export all sales as JSON (for CSV download in frontend)"""
+    db_conn = get_db_connection()
+    start = request.args.get('start')
+    end = request.args.get('end')
+    method = request.args.get('method')
+
+    conditions = []
+    params = []
+    if start:
+        conditions.append("o.order_date >= %s")
+        params.append(start)
+    if end:
+        conditions.append("o.order_date <= %s")
+        params.append(end + ' 23:59:59')
+    if method and method != 'all':
+        conditions.append("o.payment_method = %s")
+        params.append(method)
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    query = f"""
+    SELECT o.order_ID, o.order_date, o.total_amount, o.payment_method,
+           o.event_name, c.first_name as customer_name,
+           GROUP_CONCAT(p.product_name ORDER BY p.product_name SEPARATOR ', ') as items
+    FROM `Order` o
+    LEFT JOIN Customers c ON o.customer_ID = c.Customer_ID
+    LEFT JOIN Order_Item oi ON o.order_ID = oi.order_ID
+    LEFT JOIN Products p ON oi.product_ID = p.product_ID
+    {where}
+    GROUP BY o.order_ID
+    ORDER BY o.order_date DESC
+    """
+    orders = execute_read_query(db_conn, query, tuple(params) if params else None)
+    return jsonify([{
+        'id': o['order_ID'],
+        'date': str(o['order_date']) if o['order_date'] else '',
+        'total': float(o['total_amount']) if o['total_amount'] else 0,
+        'paymentMethod': o['payment_method'],
+        'eventName': o.get('event_name', ''),
+        'customerName': o.get('customer_name', ''),
+        'items': o.get('items', '')
+    } for o in orders]), 200
+
+
 # ==================== Error Handlers ====================
 
 @app.errorhandler(404)

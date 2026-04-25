@@ -38,6 +38,16 @@
         <p class="st-val">{{ recentActivities }}</p>
         <p class="st-delta">Audit entries</p>
       </div>
+      <div class="stat-tile">
+        <p class="st-label">Total Products</p>
+        <p class="st-val">{{ totalProducts }}</p>
+        <p class="st-delta">In catalog</p>
+      </div>
+      <div class="stat-tile">
+        <p class="st-label">Total Revenue</p>
+        <p class="st-val">${{ totalRevenue }}</p>
+        <p class="st-delta">All time sales</p>
+      </div>
     </div>
 
     <!-- Charts Row -->
@@ -54,6 +64,12 @@
         <h3 class="chart-title">Avg Oil Cost by Supplier</h3>
         <Bar :data="avgCostData" :options="horizontalBarOptions" />
       </div>
+    </div>
+
+    <!-- Revenue Chart -->
+    <div class="chart-card chart-card-wide">
+      <h3 class="chart-title">Revenue — Last 7 Days</h3>
+      <Line :data="revenueChartData" :options="lineOptions" />
     </div>
 
     <!-- Cards row -->
@@ -73,6 +89,9 @@
           </button>
           <button class="action-row-btn" @click="router.push('/import-export')">
             <span class="abt-icon">↑</span> Import / Export Data
+          </button>
+          <button class="action-row-btn" @click="router.push('/pos')">
+            <span class="abt-icon">$</span> Open POS
           </button>
         </div>
       </div>
@@ -146,20 +165,23 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Bar, Doughnut } from 'vue-chartjs'
+import { Bar, Doughnut, Line } from 'vue-chartjs'
 import {
   Chart as ChartJS, Title, Tooltip, Legend,
-  BarElement, ArcElement, CategoryScale, LinearScale
+  BarElement, ArcElement, CategoryScale, LinearScale,
+  LineElement, PointElement
 } from 'chart.js'
+import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
 import { useScentStore } from '../stores/scents'
 import { useEssentialOilStore } from '../stores/essential-oils'
 import { useSupplierStore } from '../stores/suppliers'
 import { useAuditStore } from '../stores/audit'
+import { useProductStore } from '../stores/products'
 
-ChartJS.register(Title, Tooltip, Legend, BarElement, ArcElement, CategoryScale, LinearScale)
+ChartJS.register(Title, Tooltip, Legend, BarElement, ArcElement, CategoryScale, LinearScale, LineElement, PointElement)
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -167,18 +189,31 @@ const scentStore = useScentStore()
 const essentialOilStore = useEssentialOilStore()
 const supplierStore = useSupplierStore()
 const auditStore = useAuditStore()
+const productStore = useProductStore()
+
+const allSales = ref([])
 
 onMounted(async () => {
   if (!scentStore.scents.length) await scentStore.fetchScents()
   if (!essentialOilStore.oils.length) await essentialOilStore.fetchOils()
   if (!supplierStore.suppliers.length) await supplierStore.fetchSuppliers()
   if (!auditStore.auditLogs.length) await auditStore.fetchAuditLogs()
+  if (!productStore.products.length) await productStore.fetchProducts()
+  try {
+    const token = localStorage.getItem('authToken')
+    const res = await axios.get('/api/sales', { headers: { Authorization: `Bearer ${token}` } })
+    allSales.value = res.data
+  } catch {}
 })
 
 const totalScents = computed(() => scentStore.scents.filter(s => !s.archivedAt).length)
 const totalIngredients = computed(() => essentialOilStore.oils.length)
 const totalSuppliers = computed(() => supplierStore.suppliers.length)
 const recentActivities = computed(() => auditStore.auditLogs.length)
+const totalProducts = computed(() => productStore.products.length)
+const totalRevenue = computed(() =>
+  allSales.value.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0).toFixed(2)
+)
 const canEdit = computed(() => ['admin', 'manager'].includes(authStore.user?.role))
 const isAdmin = computed(() => authStore.user?.role === 'admin')
 
@@ -232,6 +267,34 @@ const avgCostData = computed(() => {
 const barOptions = { responsive: true, plugins: { legend: { display: false } } }
 const horizontalBarOptions = { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
 const donutOptions = { responsive: true, plugins: { legend: { position: 'bottom' } } }
+const lineOptions = { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+
+// Chart 4: revenue per day for last 7 days
+const revenueChartData = computed(() => {
+  const days = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    days.push(d.toISOString().slice(0, 10))
+  }
+  const totals = Object.fromEntries(days.map(d => [d, 0]))
+  allSales.value.forEach(s => {
+    const day = (s.date || '').slice(0, 10)
+    if (totals[day] !== undefined) totals[day] += parseFloat(s.total) || 0
+  })
+  return {
+    labels: days.map(d => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+    datasets: [{
+      label: 'Revenue ($)',
+      data: days.map(d => +totals[d].toFixed(2)),
+      borderColor: '#C49A3C',
+      backgroundColor: 'rgba(196,154,60,0.15)',
+      tension: 0.3,
+      fill: true,
+      pointBackgroundColor: '#8B6B4A'
+    }]
+  }
+})
 </script>
 
 <style scoped>
@@ -254,7 +317,7 @@ const donutOptions = { responsive: true, plugins: { legend: { position: 'bottom'
 
 /* Stats */
 .stats-row {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px;
 }
 .stat-tile {
   background: var(--white); border-radius: 12px; padding: 16px 18px;
@@ -274,8 +337,9 @@ const donutOptions = { responsive: true, plugins: { legend: { position: 'bottom'
 }
 .chart-card {
   background: var(--white); border-radius: 12px; padding: 18px 20px;
-  border: 1px solid var(--cream-mid);
+  border: 1px solid var(--cream-mid); margin-bottom: 14px;
 }
+.chart-card-wide { grid-column: 1 / -1; }
 .chart-title {
   font-size: 11px; font-weight: 700; color: var(--brown);
   letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 14px;
@@ -337,6 +401,7 @@ const donutOptions = { responsive: true, plugins: { legend: { position: 'bottom'
 
 @media (max-width: 900px) {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .chart-card-wide { grid-column: auto; }
   .charts-row { grid-template-columns: 1fr; }
   .cards-row { grid-template-columns: 1fr; }
   .steps-grid { grid-template-columns: 1fr; }

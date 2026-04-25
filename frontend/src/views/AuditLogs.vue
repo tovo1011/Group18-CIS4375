@@ -8,7 +8,7 @@
     <div class="view-header">
       <div class="view-header-left">
         <h2>Audit Logs</h2>
-        <p>Track all changes made to scents, ingredients, and suppliers</p>
+        <p>Track all changes made to scents, ingredients, suppliers, products, and orders</p>
       </div>
     </div>
 
@@ -31,6 +31,8 @@
           <option value="Essential_oil">Essential Oils</option>
           <option value="Suppliers">Suppliers</option>
           <option value="import">Imports</option>
+          <option value="Products">Products</option>
+          <option value="Order">Orders</option>
         </select>
       </div>
 

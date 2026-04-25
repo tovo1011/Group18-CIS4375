@@ -78,31 +78,41 @@
 
       <!-- Export Section -->
       <div class="section export-section">
-        <h3>📤 Export Scents as CSV</h3>
+        <h3>📤 Export Data as CSV</h3>
         <div class="instructions">
-          <p>Download your complete scent library with all fragrance details.</p>
-          <p>The CSV file will include:</p>
-          <ul>
-            <li>Scent name and formulas (top, middle, base notes)</li>
-            <li>Associated essential oils</li>
-            <li>Creation date and creator</li>
-          </ul>
+          <p>Download your library data as CSV files.</p>
         </div>
 
-        <div class="export-options">
-          <label>
-            <input v-model="exportFormat" type="radio" value="csv" />
-            CSV (.csv)
-          </label>
-          <label>
-            <input v-model="exportFormat" type="radio" value="json" />
-            JSON (.json)
-          </label>
+        <div class="export-group">
+          <p class="export-group-label">Scent Library</p>
+          <div class="export-options">
+            <label>
+              <input v-model="exportFormat" type="radio" value="csv" />
+              CSV (.csv)
+            </label>
+            <label>
+              <input v-model="exportFormat" type="radio" value="json" />
+              JSON (.json)
+            </label>
+          </div>
+          <button class="btn btn-primary" @click="handleExport">
+            📥 Download Scents {{ exportFormat.toUpperCase() }}
+          </button>
         </div>
 
-        <button class="btn btn-primary" @click="handleExport">
-          📥 Download {{ exportFormat.toUpperCase() }}
-        </button>
+        <div class="export-group">
+          <p class="export-group-label">Products Catalog</p>
+          <button class="btn btn-secondary" :disabled="exportingProducts" @click="handleExportProducts">
+            {{ exportingProducts ? 'Downloading...' : '📥 Download Products CSV' }}
+          </button>
+        </div>
+
+        <div class="export-group">
+          <p class="export-group-label">Sales History</p>
+          <button class="btn btn-secondary" :disabled="exportingSales" @click="handleExportSales">
+            {{ exportingSales ? 'Downloading...' : '📥 Download Sales CSV' }}
+          </button>
+        </div>
 
         <div v-if="exportMessage" :class="`status status-${exportMessage.type}`">
           {{ exportMessage.message }}
@@ -164,6 +174,8 @@ const uploading = ref(false)
 const uploadStatus = ref(null)
 const exportFormat = ref('csv')
 const exportMessage = ref(null)
+const exportingProducts = ref(false)
+const exportingSales = ref(false)
 const importHistory = ref([])
 
 onMounted(async () => {
@@ -368,6 +380,44 @@ const exportAsJSON = (scents) => {
   downloadFile(json, 'scent_library.json', 'application/json')
 }
 
+const handleExportProducts = async () => {
+  exportingProducts.value = true
+  try {
+    const token = localStorage.getItem('authToken')
+    const res = await axios.get('/api/export/products', { headers: { Authorization: `Bearer ${token}` } })
+    const products = res.data
+    const headers = ['ID', 'Name', 'Type', 'Price', 'Description', 'Scent']
+    const rows = products.map(p => [p.id, p.name, p.type, p.price, p.description, p.scentName])
+    const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c ?? ''}"`).join(','))].join('\n')
+    downloadFile(csv, 'products.csv', 'text/csv')
+    exportMessage.value = { type: 'success', message: '✅ Downloaded products.csv' }
+  } catch {
+    exportMessage.value = { type: 'error', message: '❌ Failed to export products' }
+  } finally {
+    exportingProducts.value = false
+    setTimeout(() => { exportMessage.value = null }, 3000)
+  }
+}
+
+const handleExportSales = async () => {
+  exportingSales.value = true
+  try {
+    const token = localStorage.getItem('authToken')
+    const res = await axios.get('/api/export/sales', { headers: { Authorization: `Bearer ${token}` } })
+    const sales = res.data
+    const headers = ['Order ID', 'Date', 'Customer', 'Items', 'Total', 'Payment Method', 'Event']
+    const rows = sales.map(s => [s.id, s.date, s.customerName, s.items, s.total, s.paymentMethod, s.eventName])
+    const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c ?? ''}"`).join(','))].join('\n')
+    downloadFile(csv, 'sales_history.csv', 'text/csv')
+    exportMessage.value = { type: 'success', message: '✅ Downloaded sales_history.csv' }
+  } catch {
+    exportMessage.value = { type: 'error', message: '❌ Failed to export sales' }
+  } finally {
+    exportingSales.value = false
+    setTimeout(() => { exportMessage.value = null }, 3000)
+  }
+}
+
 const downloadFile = (content, filename, type) => {
   const blob = new Blob([content], { type })
   const url = window.URL.createObjectURL(blob)
@@ -423,6 +473,16 @@ const downloadFile = (content, filename, type) => {
 .status-error   { background: rgba(155,58,58,0.1); color: var(--red);   border: 1px solid rgba(155,58,58,0.2); }
 .status-warning { background: rgba(201,160,72,0.1); color: var(--gold-dk); border: 1px solid rgba(201,160,72,0.2); }
 
+.export-group { margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--cream-mid); }
+.export-group:last-of-type { border-bottom: none; }
+.export-group-label { font-size: 11px; font-weight: 700; color: var(--brown-lt); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 10px; }
+.btn-secondary {
+  padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  background: var(--cream); border: 1.5px solid var(--cream-mid);
+  color: var(--brown-md); cursor: pointer; font-family: var(--font-sans); transition: all .15s;
+}
+.btn-secondary:hover { background: var(--brown); color: var(--gold-lt); border-color: var(--brown); }
+.btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
 .export-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
 .export-option {
   display: flex; align-items: center; justify-content: space-between;
