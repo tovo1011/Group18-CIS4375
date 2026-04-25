@@ -384,7 +384,7 @@ const handleExportProducts = async () => {
   exportingProducts.value = true
   try {
     const token = localStorage.getItem('authToken')
-    const res = await axios.get(`${API_URL}/export/products`, { headers: { Authorization: `Bearer ${token}` } })
+    const res = await axios.get(`${API_URL}/products`, { headers: { Authorization: `Bearer ${token}` } })
     const products = res.data
     const headers = ['ID', 'Name', 'Type', 'Price', 'Description', 'Scent']
     const rows = products.map(p => [p.id, p.name, p.type, p.price, p.description, p.scentName])
@@ -403,7 +403,7 @@ const handleExportSales = async () => {
   exportingSales.value = true
   try {
     const token = localStorage.getItem('authToken')
-    const res = await axios.get(`${API_URL}/export/sales`, { headers: { Authorization: `Bearer ${token}` } })
+    const res = await axios.get(`${API_URL}/sales`, { headers: { Authorization: `Bearer ${token}` } })
     const sales = res.data
     const headers = ['Order ID', 'Date', 'Customer', 'Items', 'Total', 'Payment Method', 'Event']
     const rows = sales.map(s => [s.id, s.date, s.customerName, s.items, s.total, s.paymentMethod, s.eventName])
