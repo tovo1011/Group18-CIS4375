@@ -174,6 +174,7 @@ import {
   LineElement, PointElement
 } from 'chart.js'
 import axios from 'axios'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 import { useAuthStore } from '../stores/auth'
 import { useScentStore } from '../stores/scents'
 import { useEssentialOilStore } from '../stores/essential-oils'
@@ -201,7 +202,7 @@ onMounted(async () => {
   if (!productStore.products.length) await productStore.fetchProducts()
   try {
     const token = localStorage.getItem('authToken')
-    const res = await axios.get('/api/sales', { headers: { Authorization: `Bearer ${token}` } })
+    const res = await axios.get(`${API_URL}/sales`, { headers: { Authorization: `Bearer ${token}` } })
     allSales.value = res.data
   } catch {}
 })
