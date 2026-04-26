@@ -127,7 +127,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useSupplierStore } from '../stores/suppliers'
 import SupplierModal from '../components/SupplierModal.vue'
@@ -136,6 +136,8 @@ import Toast from '../components/Toast.vue'
 
 const authStore = useAuthStore()
 const supplierStore = useSupplierStore()
+
+onMounted(() => supplierStore.fetchSuppliers())
 
 const searchQuery = ref('')
 const sortBy = ref('name-asc')
