@@ -1,7 +1,7 @@
 <template>
   <div class="essential-oils-view">
     <div class="view-header">
-      <h2>🧃 Essential Oils</h2>
+      <h2>Essential Oils</h2>
       <p>Manage essential oils, suppliers, costs, and inventory</p>
     </div>
 
@@ -82,7 +82,7 @@
                 @click="openEditModal(oil)"
                 title="Edit"
               >
-                ✏️
+                Edit
               </button>
               <button
                 v-if="canDelete"
@@ -90,7 +90,7 @@
                 @click="openDeleteConfirm(oil)"
                 title="Delete"
               >
-                🗑️
+                Delete
               </button>
             </td>
           </tr>
@@ -460,17 +460,34 @@ const handleBulkDeleteOils = async () => {
 }
 
 .action-btn {
-  background: none;
-  border: none;
   cursor: pointer;
-  font-size: 16px;
-  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
   margin: 0 2px;
-  transition: opacity 0.2s;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  transition: all 0.2s;
 }
 
-.action-btn:hover {
-  opacity: 0.7;
+.action-btn.edit {
+  background-color: #e8f0fe;
+  color: #3b5bdb;
+  border-color: #c5d5f8;
+}
+
+.action-btn.edit:hover {
+  background-color: #d0e0fc;
+}
+
+.action-btn.delete {
+  background-color: #fdecea;
+  color: #c0392b;
+  border-color: #f5c6c2;
+}
+
+.action-btn.delete:hover {
+  background-color: #fad5d0;
 }
 
 .empty-state {
