@@ -10,6 +10,7 @@ from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 import jwt
 import os
+import glob
 import uuid
 from datetime import datetime, timedelta
 from functools import wraps
@@ -30,6 +31,26 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def find_product_image(product_id):
+    """Return the URL path for a product's image, or None if not found."""
+    matches = glob.glob(os.path.join(UPLOAD_FOLDER, f"{product_id}.*"))
+    if matches:
+        return f"/uploads/products/{os.path.basename(matches[0])}"
+    return None
+
+def save_product_image(product_id, file):
+    """Save uploaded image file named after product_id. Returns filename saved."""
+    if not file or not file.filename or not allowed_file(file.filename):
+        return None
+    # Remove any existing image for this product first
+    for old in glob.glob(os.path.join(UPLOAD_FOLDER, f"{product_id}.*")):
+        os.remove(old)
+    ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
+    filename = f"{product_id}.{ext}"
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    file.save(os.path.join(UPLOAD_FOLDER, filename))
+    return filename
 
 # Initialize database connection
 conn = create_connection()
@@ -1136,7 +1157,7 @@ def pos_get_products(current_user):
     db_conn = get_db_connection()
     query = """
     SELECT p.product_ID, p.product_name, p.product_type, p.price,
-           p.image_path, s.name as scent_name
+           s.name as scent_name
     FROM Products p
     LEFT JOIN Scents s ON p.id = s.id
     ORDER BY p.product_type, p.product_name
@@ -1148,7 +1169,7 @@ def pos_get_products(current_user):
         'type': p['product_type'],
         'price': float(p['price']),
         'scentName': p.get('scent_name', ''),
-        'image': f"/uploads/products/{p['image_path']}" if p.get('image_path') else None
+        'image': find_product_image(p['product_ID'])
     } for p in products]), 200
 
 
@@ -1311,7 +1332,7 @@ def get_products(current_user):
     db_conn = get_db_connection()
     query = """
     SELECT p.product_ID, p.product_name, p.product_type, p.price,
-           p.description, p.image_path, s.name as scent_name, p.id as scent_id
+           s.name as scent_name, p.id as scent_id
     FROM Products p
     LEFT JOIN Scents s ON p.id = s.id
     ORDER BY p.product_type, p.product_name
@@ -1322,10 +1343,10 @@ def get_products(current_user):
         'name': p['product_name'],
         'type': p['product_type'],
         'price': float(p['price']),
-        'description': p.get('description', ''),
+        'description': '',
         'scentId': p.get('scent_id'),
         'scentName': p.get('scent_name', ''),
-        'image': f"/uploads/products/{p['image_path']}" if p.get('image_path') else None
+        'image': find_product_image(p['product_ID'])
     } for p in products]), 200
 
 
@@ -1345,22 +1366,15 @@ def create_product(current_user):
     if not product_name or not product_type or not price:
         return jsonify({'message': 'Name, type, and price are required'}), 400
 
-    image_path = None
-    if 'image' in request.files:
-        file = request.files['image']
-        if file and file.filename and allowed_file(file.filename):
-            ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
-            filename = f"{uuid.uuid4().hex}.{ext}"
-            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-            file.save(os.path.join(UPLOAD_FOLDER, filename))
-            image_path = filename
-
     product_id = uuid.uuid4().hex[:12]
     query = """
-    INSERT INTO Products (product_ID, id, product_name, product_type, price, description, image_path)
-    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO Products (product_ID, id, product_name, product_type, price)
+    VALUES (%s, %s, %s, %s, %s)
     """
-    execute_query(db_conn, query, (product_id, scent_id, product_name, product_type, float(price), description, image_path))
+    execute_query(db_conn, query, (product_id, scent_id, product_name, product_type, float(price)))
+
+    if 'image' in request.files:
+        save_product_image(product_id, request.files['image'])
 
     log_audit(current_user['UserID'], 'CREATE', 'Products', product_id)
 
@@ -1369,10 +1383,10 @@ def create_product(current_user):
         'name': product_name,
         'type': product_type,
         'price': float(price),
-        'description': description,
+        'description': '',
         'scentId': scent_id,
         'scentName': '',
-        'image': f"/uploads/products/{image_path}" if image_path else None
+        'image': find_product_image(product_id)
     }), 201
 
 
@@ -1392,31 +1406,17 @@ def update_product(current_user, product_id):
     product_type = request.form.get('product_type', p['product_type']).strip()
     price = request.form.get('price', p['price'])
     scent_id = request.form.get('scent_id') or None
-    description = request.form.get('description', p.get('description', '') or '').strip()
 
-    image_path = p.get('image_path')
     if 'image' in request.files:
-        file = request.files['image']
-        if file and file.filename and allowed_file(file.filename):
-            # Remove old image if it exists
-            if image_path:
-                old_path = os.path.join(UPLOAD_FOLDER, image_path)
-                if os.path.exists(old_path):
-                    os.remove(old_path)
-            ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
-            filename = f"{uuid.uuid4().hex}.{ext}"
-            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-            file.save(os.path.join(UPLOAD_FOLDER, filename))
-            image_path = filename
+        save_product_image(product_id, request.files['image'])
 
     execute_query(db_conn, """
-        UPDATE Products SET product_name=%s, product_type=%s, price=%s,
-        id=%s, description=%s, image_path=%s WHERE product_ID=%s
-    """, (product_name, product_type, float(price), scent_id, description, image_path, product_id))
+        UPDATE Products SET product_name=%s, product_type=%s, price=%s, id=%s
+        WHERE product_ID=%s
+    """, (product_name, product_type, float(price), scent_id, product_id))
 
     log_audit(current_user['UserID'], 'UPDATE', 'Products', product_id)
 
-    # Fetch updated row with scent name
     updated = execute_read_query(db_conn, """
         SELECT p.*, s.name as scent_name FROM Products p
         LEFT JOIN Scents s ON p.id = s.id WHERE p.product_ID = %s
@@ -1427,10 +1427,10 @@ def update_product(current_user, product_id):
         'name': u['product_name'],
         'type': u['product_type'],
         'price': float(u['price']),
-        'description': u.get('description', ''),
+        'description': '',
         'scentId': u.get('id'),
         'scentName': u.get('scent_name', ''),
-        'image': f"/uploads/products/{u['image_path']}" if u.get('image_path') else None
+        'image': find_product_image(product_id)
     }), 200
 
 
@@ -1445,12 +1445,8 @@ def delete_product(current_user, product_id):
     if not rows:
         return jsonify({'message': 'Product not found'}), 404
 
-    # Remove image file if it exists
-    image_path = rows[0].get('image_path')
-    if image_path:
-        full_path = os.path.join(UPLOAD_FOLDER, image_path)
-        if os.path.exists(full_path):
-            os.remove(full_path)
+    for f in glob.glob(os.path.join(UPLOAD_FOLDER, f"{product_id}.*")):
+        os.remove(f)
 
     execute_query(db_conn, "DELETE FROM Products WHERE product_ID = %s", (product_id,))
     log_audit(current_user['UserID'], 'DELETE', 'Products', product_id)
