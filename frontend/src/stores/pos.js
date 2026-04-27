@@ -20,7 +20,7 @@ export const usePOSStore = defineStore('pos', () => {
   )
 
   async function fetchProducts() {
-    loading.value = true
+    if (!products.value.length) loading.value = true
     error.value = null
     try {
       const res = await axios.get(`${API_URL}/pos/products`)

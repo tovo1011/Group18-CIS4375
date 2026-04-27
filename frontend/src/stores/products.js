@@ -15,7 +15,7 @@ export const useProductStore = defineStore('products', () => {
 
   const fetchProducts = async () => {
     try {
-      loading.value = true
+      if (!products.value.length) loading.value = true
       error.value = null
       const res = await axios.get(`${API_URL}/products`, { headers: authHeaders() })
       products.value = res.data
