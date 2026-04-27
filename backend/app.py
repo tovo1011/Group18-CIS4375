@@ -1236,10 +1236,12 @@ def pos_create_order(current_user):
 
     # Insert Order_Item rows
     for li in line_items:
-        execute_query(db_conn,
+        ok = execute_query(db_conn,
             "INSERT INTO Order_Item (order_ID, product_ID, quantity, unit_price) VALUES (%s, %s, %s, %s)",
             (order_id, li['product_id'], li['quantity'], li['unit_price'])
         )
+        if not ok:
+            return jsonify({'message': f'Failed to save item for product {li["product_id"]}. Check that Order_Item.product_ID column type is VARCHAR(50).'}), 500
 
     log_audit(current_user['UserID'], 'CREATE', 'Order', order_id)
 
@@ -1480,14 +1482,10 @@ def get_sales(current_user):
 
     query = f"""
     SELECT o.order_ID, o.order_date, o.total_amount, o.payment_method,
-           o.event_name, o.event_date, c.first_name as customer_name,
-           GROUP_CONCAT(p.product_name ORDER BY p.product_name SEPARATOR ', ') as items
+           o.event_name, o.event_date, c.first_name as customer_name
     FROM `Order` o
     LEFT JOIN Customers c ON o.customer_ID = c.Customer_ID
-    LEFT JOIN Order_Item oi ON o.order_ID = oi.order_ID
-    LEFT JOIN Products p ON oi.product_ID = p.product_ID
     {where}
-    GROUP BY o.order_ID
     ORDER BY o.order_date DESC
     LIMIT 500
     """
@@ -1498,8 +1496,7 @@ def get_sales(current_user):
         'total': float(o['total_amount']) if o['total_amount'] else 0,
         'paymentMethod': o['payment_method'],
         'eventName': o.get('event_name', ''),
-        'customerName': o.get('customer_name', ''),
-        'items': o.get('items', '')
+        'customerName': o.get('customer_name', '')
     } for o in orders]), 200
 
 

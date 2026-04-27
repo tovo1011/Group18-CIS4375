@@ -46,7 +46,6 @@
               <th>Order #</th>
               <th>Date</th>
               <th>Customer</th>
-              <th>Items</th>
               <th>Total</th>
               <th>Method</th>
               <th>Event</th>
@@ -57,7 +56,6 @@
               <td class="order-id">#{{ s.id }}</td>
               <td>{{ formatDate(s.date) }}</td>
               <td>{{ s.customerName || '—' }}</td>
-              <td class="items-cell" :title="s.items">{{ truncate(s.items, 40) }}</td>
               <td class="total">${{ fmt(s.total) }}</td>
               <td>
                 <span :class="`method-badge method-${s.paymentMethod}`">{{ s.paymentMethod }}</span>
@@ -125,18 +123,13 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function truncate(str, len) {
-  if (!str) return '—'
-  return str.length > len ? str.slice(0, len) + '…' : str
-}
 
 function exportCSV() {
-  const headers = ['Order #', 'Date', 'Customer', 'Items', 'Total', 'Method', 'Event']
+  const headers = ['Order #', 'Date', 'Customer', 'Total', 'Method', 'Event']
   const rows = sales.value.map(s => [
     s.id,
     s.date ? new Date(s.date).toLocaleDateString() : '',
     s.customerName || '',
-    (s.items || '').replace(/,/g, ';'),
     fmt(s.total),
     s.paymentMethod || '',
     s.eventName || ''
