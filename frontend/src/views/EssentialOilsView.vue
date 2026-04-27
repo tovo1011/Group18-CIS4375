@@ -460,34 +460,22 @@ const handleBulkDeleteOils = async () => {
 }
 
 .action-btn {
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 4px 10px;
-  margin: 0 2px;
+  padding: 6px 8px;
+  border: none;
   border-radius: 4px;
-  border: 1px solid transparent;
-  transition: all 0.2s;
+  background: #f0f0f0;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
 }
 
-.action-btn.edit {
-  background-color: #e8f0fe;
-  color: #3b5bdb;
-  border-color: #c5d5f8;
-}
-
-.action-btn.edit:hover {
-  background-color: #d0e0fc;
-}
-
-.action-btn.delete {
-  background-color: #fdecea;
-  color: #c0392b;
-  border-color: #f5c6c2;
+.action-btn:hover {
+  background: #e0e0e0;
 }
 
 .action-btn.delete:hover {
-  background-color: #fad5d0;
+  background: #ffebee;
+  color: #c0392b;
 }
 
 .empty-state {
