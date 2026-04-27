@@ -135,7 +135,7 @@
                 class="product-card"
                 @click="posStore.addToCart(p)"
               >
-                <img v-if="p.image" :src="backendBase + p.image" class="product-thumb" :alt="p.name" />
+                <img v-if="p.image" :src="backendBase + p.image" class="product-thumb" :alt="p.name" @error="e => e.target.style.display='none'" />
                 <span class="product-name">{{ p.name }}</span>
                 <span class="product-price">${{ fmt(p.price) }}</span>
               </button>

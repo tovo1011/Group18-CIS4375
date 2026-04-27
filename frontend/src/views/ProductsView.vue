@@ -45,8 +45,8 @@
         <tbody>
           <tr v-for="p in sortedProducts" :key="p.id">
             <td class="col-photo">
-              <img v-if="p.image" :src="backendBase + p.image" class="thumb" :alt="p.name" />
-              <span v-else class="no-photo">—</span>
+              <img v-if="p.image" :src="backendBase + p.image" class="thumb" :alt="p.name" @error="e => { e.target.style.display='none'; e.target.nextElementSibling.style.display='' }" />
+              <span class="no-photo" style="display:none">—</span>
             </td>
             <td class="product-name">{{ p.name }}</td>
             <td>
@@ -116,7 +116,7 @@ const filteredProducts = computed(() => {
   if (!searchQuery.value) return productStore.products
   const q = searchQuery.value.toLowerCase()
   return productStore.products.filter(
-    p => p.name.toLowerCase().includes(q) || p.type.toLowerCase().includes(q)
+    p => p.name.toLowerCase().includes(q) || p.type?.toLowerCase().includes(q)
   )
 })
 

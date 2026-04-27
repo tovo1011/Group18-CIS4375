@@ -1135,10 +1135,10 @@ def pos_get_products(current_user):
     """Return all products for the POS product grid"""
     db_conn = get_db_connection()
     query = """
-    SELECT p.product_ID, p.product_name, p.product_type, p.price, s.name as scent_name
+    SELECT p.product_ID, p.product_name, p.product_type, p.price,
+           p.image_path, s.name as scent_name
     FROM Products p
     LEFT JOIN Scents s ON p.id = s.id
-    WHERE s.archived_at IS NULL OR s.archived_at IS NULL
     ORDER BY p.product_type, p.product_name
     """
     products = execute_read_query(db_conn, query)
