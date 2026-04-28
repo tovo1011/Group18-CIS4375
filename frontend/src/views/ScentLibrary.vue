@@ -31,6 +31,14 @@
         </select>
       </div>
 
+      <button
+        v-if="canDelete && selectedIds.size > 0"
+        class="btn btn-danger"
+        @click="openBulkDeleteConfirm"
+      >
+        Delete Selected ({{ selectedIds.size }})
+      </button>
+
       <button v-if="canEdit" class="btn btn-primary" @click="openCreateModal">
         + New Scent
       </button>
@@ -445,6 +453,15 @@ const handleBulkDeleteScents = async () => {
 
 .btn-primary:hover {
   background: #5568d3;
+}
+
+.btn-danger {
+  background: #e53e3e;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c53030;
 }
 
 .table-container {
